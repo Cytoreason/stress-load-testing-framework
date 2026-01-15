@@ -1,0 +1,23 @@
+# Core load testing dependencies
+locust==2.23.1
+pytest==7.4.3
+pytest-html==4.1.1
+pytest-timeout==2.2.0
+
+# HTTP and API testing
+requests==2.31.0
+urllib3==2.1.0
+
+# Configuration management
+pyyaml==6.0.1
+python-dotenv==1.0.0
+
+# Data handling and reporting
+pandas==2.1.4
+numpy==1.26.2
+
+# Logging and monitoring
+colorlog==6.8.0
+
+# Utilities
+Faker==22.0.0
