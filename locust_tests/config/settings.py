@@ -58,7 +58,15 @@ class Config:
         if os.getenv('RUN_TIME'):
             self._config_data.setdefault('load_test', {})['run_time'] = os.getenv('RUN_TIME')
 
-        # Authentication
+        # Authentication - Check for Auth0 first
+        if os.getenv('CLIENT_ID') and os.getenv('CLIENT_SECRET'):
+            self._config_data.setdefault('auth', {})['type'] = 'auth0'
+            self._config_data.setdefault('auth', {})['client_id'] = os.getenv('CLIENT_ID')
+            self._config_data.setdefault('auth', {})['client_secret'] = os.getenv('CLIENT_SECRET')
+            self._config_data.setdefault('auth', {})['domain'] = os.getenv('AUTH0_PXX_DOMAIN') or os.getenv('AUTH0_PYY_DOMAIN')
+            self._config_data.setdefault('auth', {})['audience'] = os.getenv('AUTH0_AUDIENCE', 'https://apps.private.cytoreason.com/')
+
+        # Fallback to other auth methods
         if os.getenv('API_KEY'):
             self._config_data.setdefault('auth', {})['api_key'] = os.getenv('API_KEY')
 
