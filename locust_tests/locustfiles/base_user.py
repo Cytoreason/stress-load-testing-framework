@@ -50,7 +50,26 @@ class BaseLoadTestUser(HttpUser):
         """Setup authentication headers"""
         auth_type = config.get('auth.type', 'none')
 
-        if auth_type == 'token':
+        if auth_type == 'auth0':
+            # Auth0 OAuth2 client credentials flow
+            domain = config.get('auth.domain')
+            client_id = config.get('auth.client_id')
+            client_secret = config.get('auth.client_secret')
+            audience = config.get('auth.audience', 'https://apps.private.cytoreason.com/')
+
+            if domain and client_id and client_secret:
+                self.auth_headers = get_auth_headers(
+                    auth_type='auth0',
+                    auth0_domain=domain,
+                    auth0_client_id=client_id,
+                    auth0_client_secret=client_secret,
+                    auth0_audience=audience
+                )
+                logger.info(f"Auth0 authentication configured for domain: {domain}")
+            else:
+                logger.warning("Auth0 credentials incomplete in configuration")
+
+        elif auth_type == 'token':
             token = config.get('auth.token')
             if token:
                 self.auth_headers = get_auth_headers(auth_type='token', token=token)

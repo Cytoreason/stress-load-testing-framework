@@ -40,7 +40,11 @@ scenarios:
 
 # Authentication settings
 auth:
-  type: "token"  # Options: token, basic, oauth2, none
+  type: "auth0"  # Options: auth0, token, basic, api_key, none
+  # Auth0 OAuth2 configuration (populated from .env by settings.py)
+  domain: "cytoreason-pxx.us.auth0.com"
+  audience: "https://apps.private.cytoreason.com/"
+  # client_id and client_secret are loaded from CLIENT_ID and CLIENT_SECRET env vars
   token_header: "Authorization"
   token_prefix: "Bearer"
 
