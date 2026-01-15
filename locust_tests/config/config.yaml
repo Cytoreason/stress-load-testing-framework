@@ -1,0 +1,66 @@
+# Load Testing Framework Configuration
+
+# Target application settings
+target:
+  base_url: "https://apps.private.cytoreason.com/platform/customers/pxx/"
+  timeout: 30
+  verify_ssl: true
+
+# Load test parameters
+load_test:
+  users: 10
+  spawn_rate: 1
+  run_time: "60s"
+
+# Test scenarios configuration
+scenarios:
+  basic_load:
+    description: "Basic load test scenario"
+    users: 10
+    spawn_rate: 2
+    duration: "60s"
+
+  stress_test:
+    description: "Stress test with high user load"
+    users: 100
+    spawn_rate: 10
+    duration: "300s"
+
+  spike_test:
+    description: "Spike test with sudden load increase"
+    users: 50
+    spawn_rate: 25
+    duration: "120s"
+
+  endurance_test:
+    description: "Long-running endurance test"
+    users: 20
+    spawn_rate: 5
+    duration: "3600s"
+
+# Authentication settings
+auth:
+  type: "token"  # Options: token, basic, oauth2, none
+  token_header: "Authorization"
+  token_prefix: "Bearer"
+
+# Reporting configuration
+reporting:
+  output_dir: "./reports"
+  formats:
+    - html
+    - csv
+  log_level: "INFO"
+
+# Request settings
+requests:
+  default_headers:
+    Accept: "application/json"
+    Content-Type: "application/json"
+    User-Agent: "LoadTestFramework/1.0"
+
+# Thresholds for test success criteria
+thresholds:
+  max_response_time_ms: 5000
+  max_error_rate_percent: 5
+  min_requests_per_second: 10
