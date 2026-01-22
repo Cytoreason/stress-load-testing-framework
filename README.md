@@ -8,29 +8,60 @@ Load testing framework for the CytoReason platform using Locust.
 # 1. Activate virtual environment
 source venv/bin/activate
 
-# 2. Copy config template and add your token
-cp locust_tests/config/config.yaml.example locust_tests/config/config.yaml
-# Edit config.yaml and paste your Bearer token
+# 2. Create config.yaml with your Bearer token
+# locust_tests/config/config.yaml
 
-# 3. Run the UI flow test
+# 3. Run a test
 locust -f locustfile_ui_flow.py --host https://apps.private.cytoreason.com --web-port 8090
 
 # 4. Open browser to http://localhost:8090
 ```
 
+## Available Tests
+
+| Test | File | Description |
+|------|------|-------------|
+| **UI Flow** | `locustfile_ui_flow.py` | Sequential user journey (15 steps) |
+| **API Stress** | `locustfile_api_stress.py` | Concurrent API endpoint testing |
+| **Spike** | `locustfile_spike.py` | Sudden traffic spike simulation |
+| **Data Query** | `locustfile_data_query.py` | Heavy data operations testing |
+
+### Run Examples
+
+```bash
+# UI Flow - sequential user journey
+locust -f locustfile_ui_flow.py --web-port 8090
+
+# API Stress - concurrent endpoint testing
+locust -f locustfile_api_stress.py --web-port 8090
+
+# Spike - traffic burst simulation (7 min)
+locust -f locustfile_spike.py --web-port 8090
+
+# Data Query - heavy data operations
+locust -f locustfile_data_query.py --web-port 8090
+```
+
 ## Project Structure
 
 ```
-├── locustfile_ui_flow.py          # Main entry point
+├── locustfile_ui_flow.py          # UI Flow test entry
+├── locustfile_api_stress.py       # API Stress test entry
+├── locustfile_spike.py            # Spike test entry
+├── locustfile_data_query.py       # Data Query test entry
 ├── locust_tests/
 │   ├── config/
-│   │   └── config.yaml            # Configuration (Bearer token here)
+│   │   └── config.yaml            # Configuration (Bearer token)
 │   ├── locustfiles/
-│   │   └── ui_flow_test.py        # UI flow test implementation
+│   │   ├── base.py                # Base class for all tests
+│   │   ├── ui_flow_test.py        # UI flow implementation
+│   │   ├── api_stress_test.py     # API stress implementation
+│   │   ├── spike_test.py          # Spike test implementation
+│   │   └── data_query_test.py     # Data query implementation
 │   └── utils/
+│       ├── config_loader.py       # Configuration management
 │       └── logger.py              # Logging utility
-├── requirements.txt               # Python dependencies
-└── _archive/                      # Old/unused files
+└── requirements.txt               # Python dependencies
 ```
 
 ## Configuration
@@ -50,7 +81,7 @@ auth:
   bearer_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIs..."
 ```
 
-⚠️ Tokens expire after ~24 hours. Get a new one if you see 401 errors.
+ Tokens expire after ~24 hours. Get a new one if you see 401 errors.
 
 ## Test Steps (ST-01 to ST-15)
 
