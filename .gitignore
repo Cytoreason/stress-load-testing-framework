@@ -46,6 +46,9 @@ reports/
 # Environment variables
 .env
 
+# Config with credentials
+locust_tests/config/config.yaml
+
 # IDE
 .vscode/
 .idea/

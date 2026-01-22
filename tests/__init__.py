@@ -1,1 +1,0 @@
-"""Pytest integration tests module"""

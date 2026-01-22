@@ -10,11 +10,10 @@ urllib3==2.1.0
 
 # Configuration management
 pyyaml==6.0.1
-python-dotenv==1.0.0
 
 # Data handling and reporting
-pandas==2.1.4
-numpy==1.26.2
+pandas>=2.2.0
+numpy>=1.26.2
 
 # Logging and monitoring
 colorlog==6.8.0

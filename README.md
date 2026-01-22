@@ -1,347 +1,249 @@
-# Load Testing Framework with Locust.io
+# CytoReason Platform Load Testing
 
-A comprehensive load testing framework built with Locust.io, pytest, and Python for testing the Cytoreason platform at `https://apps.private.cytoreason.com/platform/customers/pxx/`.
+Load testing framework for the CytoReason platform using Locust.
 
-## Features
+## Quick Start
 
-- **Locust.io Integration**: Powerful load testing with easy-to-write Python tests
-- **Pytest Integration**: Run load tests with pytest for better reporting and CI/CD integration
-- **Configurable**: YAML-based configuration with environment variable overrides
-- **Multiple Test Scenarios**: Basic load, stress, spike, and endurance test scenarios
-- **Authentication Support**: Token, Basic Auth, API Key authentication methods
-- **Comprehensive Utilities**: Helper functions for test data generation, logging, and more
-- **HTML Reports**: Generate detailed HTML reports of test results
-- **Flexible User Simulation**: Multiple user behavior patterns and sequential workflows
+```bash
+# 1. Activate virtual environment
+source venv/bin/activate
+
+# 2. Copy config template and add your token
+cp locust_tests/config/config.yaml.example locust_tests/config/config.yaml
+# Edit config.yaml and paste your Bearer token
+
+# 3. Run the UI flow test
+locust -f locustfile_ui_flow.py --host https://apps.private.cytoreason.com --web-port 8090
+
+# 4. Open browser to http://localhost:8090
+```
 
 ## Project Structure
 
 ```
-stress-load-testing-framework/
+├── locustfile_ui_flow.py          # Main entry point
 ├── locust_tests/
 │   ├── config/
-│   │   ├── config.yaml          # Main configuration file
-│   │   └── settings.py          # Configuration loader
+│   │   └── config.yaml            # Configuration (Bearer token here)
 │   ├── locustfiles/
-│   │   ├── base_user.py         # Base user class with common functionality
-│   │   └── example_test.py      # Example test scenarios
+│   │   └── ui_flow_test.py        # UI flow test implementation
 │   └── utils/
-│       ├── auth.py              # Authentication utilities
-│       ├── helpers.py           # Helper functions
-│       └── logger.py            # Logging utilities
-├── tests/
-│   ├── conftest.py              # Pytest fixtures and configuration
-│   └── test_load_scenarios.py  # Pytest-based load tests
-├── reports/                     # Test reports directory
-├── locustfile.py               # Main Locust entry point
-├── requirements.txt            # Python dependencies
-├── pytest.ini                  # Pytest configuration
-├── .env.example               # Example environment variables
-└── README.md                  # This file
-```
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd stress-load-testing-framework
-```
-
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. Configure environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
+│       └── logger.py              # Logging utility
+├── requirements.txt               # Python dependencies
+└── _archive/                      # Old/unused files
 ```
 
 ## Configuration
 
-### YAML Configuration
+### Bearer Token
 
-Edit `locust_tests/config/config.yaml` to customize:
-- Target URL and connection settings
-- Load test parameters (users, spawn rate, duration)
-- Test scenarios
-- Authentication settings
-- Performance thresholds
+The test requires a valid Bearer token. To configure:
 
-### Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-BASE_URL=https://apps.private.cytoreason.com/platform/customers/pxx/
-USERS=10
-SPAWN_RATE=1
-RUN_TIME=60s
-AUTH_TOKEN=your_token_here
-LOG_LEVEL=INFO
-REPORT_DIR=./reports
-```
-
-## Usage
-
-### Running with Locust Web UI
-
-Start the Locust web interface:
-
-```bash
-locust -f locustfile.py --host https://apps.private.cytoreason.com/platform/customers/pxx/
-```
-
-Then open your browser to `http://localhost:8089` to configure and start the test.
-
-### Running with Locust CLI (Headless)
-
-Run a load test without the web UI:
-
-```bash
-# Basic load test
-locust -f locustfile.py \
-    --host https://apps.private.cytoreason.com/platform/customers/pxx/ \
-    --users 10 \
-    --spawn-rate 2 \
-    --run-time 60s \
-    --headless \
-    --html reports/report.html
-
-# Stress test with more users
-locust -f locustfile.py \
-    --host https://apps.private.cytoreason.com/platform/customers/pxx/ \
-    --users 100 \
-    --spawn-rate 10 \
-    --run-time 300s \
-    --headless \
-    --html reports/stress_test.html
-
-# Run specific user class
-locust -f locustfile.py \
-    --host https://apps.private.cytoreason.com/platform/customers/pxx/ \
-    CustomerPlatformUser \
-    --users 20 \
-    --spawn-rate 4 \
-    --run-time 120s \
-    --headless
-```
-
-### Running with Pytest
-
-Run load tests with pytest:
-
-```bash
-# Run all tests
-pytest tests/
-
-# Run with HTML report
-pytest tests/ --html=reports/pytest_report.html
-
-# Run specific test markers
-pytest tests/ -m smoke         # Quick smoke tests
-pytest tests/ -m load          # Load tests
-pytest tests/ -m stress        # Stress tests
-pytest tests/ -m integration   # Integration tests
-
-# Run specific test
-pytest tests/test_load_scenarios.py::test_basic_load_scenario
-
-# Run with verbose output
-pytest tests/ -v -s
-```
-
-## Test Scenarios
-
-### CustomerPlatformUser
-Simulates typical user browsing behavior:
-- View homepage (weight: 3)
-- View dashboard (weight: 2)
-- View reports (weight: 1)
-- View analytics (weight: 1)
-
-### SequentialUser
-Follows a sequential user journey:
-1. Login page
-2. Dashboard
-3. View data
-4. Reports
-5. Logout
-
-### APIUser
-Simulates API interactions:
-- Get customer data (weight: 3)
-- Get platform status (weight: 2)
-- Post analytics events (weight: 1)
-
-## Creating Custom Tests
-
-### Example: Custom User Class
-
-```python
-from locust import task, between
-from locust_tests.locustfiles.base_user import BaseLoadTestUser
-
-class MyCustomUser(BaseLoadTestUser):
-    wait_time = between(1, 3)
-
-    @task(3)
-    def my_custom_task(self):
-        """Custom task implementation"""
-        response = self.get("/my-endpoint")
-        self.validate_response(response, expected_status=200)
-
-    @task(1)
-    def another_task(self):
-        """Another custom task"""
-        data = {"key": "value"}
-        self.post("/api/endpoint", json_data=data)
-```
-
-### Example: Sequential Tasks
-
-```python
-from locust import SequentialTaskSet, task
-from locust_tests.locustfiles.base_user import BaseLoadTestUser
-
-class MySequentialTasks(SequentialTaskSet):
-    @task
-    def first_step(self):
-        self.client.get("/step1")
-
-    @task
-    def second_step(self):
-        self.client.post("/step2", json={"data": "value"})
-
-class MyUser(BaseLoadTestUser):
-    tasks = [MySequentialTasks]
-```
-
-## Monitoring and Reports
-
-### Locust Reports
-
-Locust generates HTML reports with:
-- Request statistics (RPS, response times, failures)
-- Response time distribution
-- Number of users over time
-- Failures and errors
-
-### Pytest Reports
-
-Pytest can generate HTML reports with:
-- Test results and outcomes
-- Test duration
-- Logs and error messages
-- Custom test metadata
-
-### Performance Metrics
-
-The framework tracks:
-- Total requests
-- Failed requests
-- Success rate
-- Average response time
-- Maximum response time
-- Requests per second
-- Percentiles (50th, 95th, 99th)
-
-## Performance Thresholds
-
-Configure thresholds in `config.yaml`:
+1. Login to https://apps.private.cytoreason.com/platform/customers/pyy/
+2. Open DevTools (F12) → Network tab
+3. Filter by `api.platform.private`
+4. Click any request → Headers → Copy `Authorization: Bearer eyJ...`
+5. Paste the token (without "Bearer " prefix) in `locust_tests/config/config.yaml`:
 
 ```yaml
-thresholds:
-  max_response_time_ms: 5000
-  max_error_rate_percent: 5
-  min_requests_per_second: 10
+auth:
+  bearer_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIs..."
 ```
 
-## Best Practices
+⚠️ Tokens expire after ~24 hours. Get a new one if you see 401 errors.
 
-1. **Start Small**: Begin with a small number of users and gradually increase
-2. **Monitor Resources**: Watch server CPU, memory, and network usage
-3. **Use Realistic Data**: Generate realistic test data with the helper functions
-4. **Set Think Time**: Use appropriate wait times between requests
-5. **Handle Errors**: Use `catch_response` context manager for custom error handling
-6. **Test in Stages**: Run smoke tests before full load tests
-7. **Document Results**: Keep records of test configurations and results
+## Test Steps (ST-01 to ST-15)
 
-## Troubleshooting
+The UI flow test simulates real user journeys:
 
-### Connection Issues
+| Step | Description | Endpoint |
+|------|-------------|----------|
+| ST-01 | Landing + Auth | `/admin/tenant` |
+| ST-02 | Project Catalog | `/project/fetch/catalog` |
+| ST-03 | Question Index | `resourceType=question_index` |
+| ST-04 | Gene Data | `resourceType=gene` |
+| ST-05 | Disease Explorer | Page navigation |
+| ST-06 | Meta Contexts | `resourceType=meta_contexts_datasets_map` |
+| ST-07 | Gene Expr Meta | `resourceType=gene_expression_differences_meta` |
+| ST-08 | Gene Expression | `resourceType=gene_expression_differences` |
+| ST-09 | Cell Abundance | `resourceType=cell_abundance_differences` |
+| ST-10 | Geneset Grouped | `resourceType=geneset_grouped` |
+| ST-11 | Geneset Regulation | `resourceType=geneset_expression_regulation_differences` |
+| ST-12 | Target-Cell Page | Page navigation |
+| ST-13 | Cell Abundance Meta | `resourceType=cell_abundance_differences_meta` |
+| ST-14 | Switch Disease | Switch between diseases |
+| ST-15 | Return to Landing | Complete journey |
 
-If you encounter connection errors:
-- Verify the target URL is accessible
-- Check authentication credentials
-- Disable SSL verification if using self-signed certificates (set `verify_ssl: false` in config)
+## Load Pattern
 
-### High Failure Rates
+The test uses a custom LoadTestShape:
 
-If tests show high failure rates:
-- Reduce the number of users or spawn rate
-- Check if the target server is healthy
-- Review server logs for errors
-- Adjust request timeouts
+```
+0 → 5 users    over 2 min   (warm up)
+Hold at 5      for 5 min
+5 → 20 users   over 5 min
+Hold at 20     for 10 min
+20 → 50 users  over 10 min
+Hold at 50     for 15 min
+50 → 0 users   over 3 min   (ramp down)
 
-### Import Errors
-
-If you encounter import errors:
-- Ensure virtual environment is activated
-- Verify all dependencies are installed: `pip install -r requirements.txt`
-- Check Python path includes project root
-
-## CI/CD Integration
-
-Example GitHub Actions workflow:
-
-```yaml
-name: Load Tests
-
-on:
-  schedule:
-    - cron: '0 2 * * *'  # Run daily at 2 AM
-  workflow_dispatch:
-
-jobs:
-  load-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.10'
-      - run: pip install -r requirements.txt
-      - run: pytest tests/ -m smoke
-      - run: pytest tests/ -m load --html=reports/report.html
-      - uses: actions/upload-artifact@v2
-        with:
-          name: load-test-reports
-          path: reports/
+Total: ~50 minutes
 ```
 
-## Contributing
+## Diseases Tested
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+- Ulcerative Colitis (colon)
+- Crohn's Disease (colon)
+- Celiac Disease (duodenum)
+- Systemic Sclerosis (skin)
 
-## License
+## Running Without UI
 
-[Add your license here]
+```bash
+# Run headless with specific user count and duration
+locust -f locustfile_ui_flow.py \
+  --host https://apps.private.cytoreason.com \
+  --headless \
+  --users 10 \
+  --spawn-rate 1 \
+  --run-time 5m \
+  --csv=results
+```
 
-## Support
+## Results
 
-For issues and questions:
-- Open an issue on GitHub
-- Contact the development team
-- Check the Locust documentation: https://docs.locust.io/
+After running, check:
+- `results_stats.csv` - Request statistics
+- `results_failures.csv` - Failed requests
+- Locust web UI charts for real-time monitoring
+
+## Adding New Tests
+
+### 1. Create a New Test File
+
+Create a new file in `locust_tests/locustfiles/`, e.g., `my_new_test.py`:
+
+```python
+from locust import HttpUser, task, between, SequentialTaskSet
+from locust_tests.utils.logger import setup_logger
+import random
+import time
+import yaml
+import os
+
+logger = setup_logger()
+
+# Load Bearer token from config
+BEARER_TOKEN = None
+try:
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml')
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+        BEARER_TOKEN = config.get('auth', {}).get('bearer_token')
+except Exception as e:
+    logger.warning(f"Could not load bearer token: {e}")
+
+
+class MyTaskSet(SequentialTaskSet):
+    """Sequential user journey - tasks execute in order"""
+    
+    def on_start(self):
+        """Initialize user session (runs once per user)"""
+        self.auth_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        if BEARER_TOKEN:
+            self.auth_headers["Authorization"] = f"Bearer {BEARER_TOKEN}"
+    
+    @task
+    def step_01_example(self):
+        """First step in the journey"""
+        with self.client.get("/api/endpoint", name="ST-01: Example", 
+                            headers=self.auth_headers, catch_response=True) as r:
+            if r.status_code == 200:
+                r.success()
+            else:
+                r.failure(f"Failed: {r.status_code}")
+        
+        time.sleep(random.uniform(0.5, 1))  # Think time
+    
+    @task
+    def step_02_post_example(self):
+        """Second step - POST request"""
+        payload = {"key": "value"}
+        
+        with self.client.post("/api/another", name="ST-02: Post Example",
+                             json=payload, headers=self.auth_headers, 
+                             catch_response=True) as r:
+            if r.status_code in [200, 201]:
+                r.success()
+            else:
+                r.failure(f"Failed: {r.status_code}")
+        
+        time.sleep(random.uniform(1, 2))
+
+
+class MyNewUser(HttpUser):
+    """User class - Locust spawns instances of this"""
+    tasks = [MyTaskSet]
+    wait_time = between(1, 3)  # Wait between task iterations
+    host = "https://your-api-host.com"
+```
+
+### 2. Create an Entry Point File
+
+Create a new entry point in the project root, e.g., `locustfile_my_test.py`:
+
+```python
+from locust import LoadTestShape
+from locust_tests.locustfiles.my_new_test import MyNewUser
+
+__all__ = ['MyNewUser']
+
+# Optional: Add a custom load shape
+class MyTestShape(LoadTestShape):
+    """Custom load pattern"""
+    
+    stages = [
+        {"duration": 60, "users": 5, "spawn_rate": 1},    # Ramp to 5
+        {"duration": 180, "users": 5, "spawn_rate": 1},   # Hold at 5
+        {"duration": 300, "users": 10, "spawn_rate": 1},  # Ramp to 10
+    ]
+    
+    def tick(self):
+        run_time = self.get_run_time()
+        for stage in self.stages:
+            if run_time < stage["duration"]:
+                return (stage["users"], stage["spawn_rate"])
+        return None  # Stop test
+```
+
+### 3. Run Your Test
+
+```bash
+# With web UI
+locust -f locustfile_my_test.py --host https://your-api-host.com --web-port 8090
+
+# Headless mode
+locust -f locustfile_my_test.py --host https://your-api-host.com \
+  --headless --users 5 --spawn-rate 1 --run-time 5m
+```
+
+### Key Patterns
+
+| Pattern | Use Case |
+|---------|----------|
+| `SequentialTaskSet` | Steps execute in order (user journeys) |
+| `TaskSet` | Steps execute randomly based on weight |
+| `@task(weight)` | Higher weight = more frequent execution |
+| `catch_response=True` | Manual pass/fail control |
+| `time.sleep()` | Simulate user think time |
+
+### Tips
+
+- **Capture HAR files**: Use browser DevTools to record real API calls, then replicate them
+- **Use `name` parameter**: Group similar requests under one name in reports
+- **Handle auth failures**: Check for 401/403 and fail gracefully
+- **Add think time**: Use `time.sleep(random.uniform(min, max))` between steps
+- **Log important events**: Use the logger for debugging
