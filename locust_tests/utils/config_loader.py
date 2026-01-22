@@ -39,7 +39,7 @@ class Config:
 
     # Project configuration
     project_id: str = "main"
-    project_version: str = "0.0.2"
+    project_version: str = "0.0.4"
 
     # Load test parameters
     users: int = 10

@@ -19,12 +19,13 @@ locust -f locustfile_ui_flow.py --host https://apps.private.cytoreason.com --web
 
 ## Available Tests
 
-| Test | File | Description |
-|------|------|-------------|
-| **UI Flow** | `locustfile_ui_flow.py` | Sequential user journey (15 steps) |
-| **API Stress** | `locustfile_api_stress.py` | Concurrent API endpoint testing |
-| **Spike** | `locustfile_spike.py` | Sudden traffic spike simulation |
-| **Data Query** | `locustfile_data_query.py` | Heavy data operations testing |
+| Test | File | Description | Peak Users |
+|------|------|-------------|------------|
+| **UI Flow** | `locustfile_ui_flow.py` | Sequential user journey (15 steps) | 50 |
+| **API Stress** | `locustfile_api_stress.py` | Concurrent API endpoint testing | 30 |
+| **Spike** | `locustfile_spike.py` | Sudden traffic spike simulation | 100 |
+| **Data Query** | `locustfile_data_query.py` | Heavy data operations testing | 20 |
+| **High Load** | `locustfile_high_load.py` | 100 users mixed workload (20 min) | **100** |
 
 ### Run Examples
 
@@ -40,6 +41,9 @@ locust -f locustfile_spike.py --web-port 8090
 
 # Data Query - heavy data operations
 locust -f locustfile_data_query.py --web-port 8090
+
+# High Load - 100 concurrent users (20 min)
+locust -f locustfile_high_load.py --web-port 8090
 ```
 
 ## Project Structure
@@ -49,6 +53,7 @@ locust -f locustfile_data_query.py --web-port 8090
 ├── locustfile_api_stress.py       # API Stress test entry
 ├── locustfile_spike.py            # Spike test entry
 ├── locustfile_data_query.py       # Data Query test entry
+├── locustfile_high_load.py        # High Load test entry (100 users)
 ├── locust_tests/
 │   ├── config/
 │   │   └── config.yaml            # Configuration (Bearer token)
@@ -57,7 +62,8 @@ locust -f locustfile_data_query.py --web-port 8090
 │   │   ├── ui_flow_test.py        # UI flow implementation
 │   │   ├── api_stress_test.py     # API stress implementation
 │   │   ├── spike_test.py          # Spike test implementation
-│   │   └── data_query_test.py     # Data query implementation
+│   │   ├── data_query_test.py     # Data query implementation
+│   │   └── high_load_test.py      # High load implementation
 │   └── utils/
 │       ├── config_loader.py       # Configuration management
 │       └── logger.py              # Logging utility

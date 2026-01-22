@@ -8,6 +8,7 @@ from locust_tests.locustfiles.ui_flow_test import UIFlowTaskSet, UIFlowUser
 from locust_tests.locustfiles.api_stress_test import APIStressTaskSet, APIStressUser
 from locust_tests.locustfiles.spike_test import SpikeTaskSet, SpikeUser, SpikeTestShape
 from locust_tests.locustfiles.data_query_test import DataQueryTaskSet, DataQueryUser
+from locust_tests.locustfiles.high_load_test import HighLoadTaskSet, HighLoadUser, HighLoadTestShape
 
 __all__ = [
     # Base
@@ -25,4 +26,8 @@ __all__ = [
     # Data Query
     "DataQueryTaskSet",
     "DataQueryUser",
+    # High Load
+    "HighLoadTaskSet",
+    "HighLoadUser",
+    "HighLoadTestShape",
 ]
