@@ -1,0 +1,60 @@
+# Hybrid Load Testing Framework - CytoReason Platform
+#
+# This configuration enables distributed load testing with master/worker pattern.
+# Scale workers to handle more concurrent users and browser instances.
+#
+# Target: CytoReason Platform
+#   - UI:  https://apps.private.cytoreason.com/platform/customers/pyy/
+#   - API: https://api.platform.private.cytoreason.com/v1.0/customer/pyy/e2/platform
+#
+# Usage:
+#   # Start with default 1 worker
+#   docker-compose up
+#
+#   # Scale to 4 workers (handles ~20 browsers and 2000 API users)
+#   docker-compose up --scale worker=4
+#
+#   # Access Locust Web UI at http://localhost:8089
+
+services:
+  master:
+    image: locustio/locust
+    ports:
+      - "8089:8089"
+    command: -f /mnt/locust/locustfile.py --master
+    volumes:
+      - ./:/mnt/locust
+    environment:
+      - LOCUST_PLAYWRIGHT_HEADLESS=true
+      - TARGET_BASE_URL=${TARGET_BASE_URL:-https://apps.private.cytoreason.com/platform/customers/pyy}
+      - TARGET_API_URL=${TARGET_API_URL:-https://api.platform.private.cytoreason.com/v1.0/customer/pyy/e2/platform}
+      - DEFAULT_USERNAME=${DEFAULT_USERNAME:-ui.automation@cytoreason.com}
+      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-U!a@zMatE}
+      - AUTH_TOKEN=${AUTH_TOKEN:-}
+
+  worker:
+    image: locustio/locust
+    # Scale this service to 4+ instances in production:
+    # docker-compose up --scale worker=4
+    command: -f /mnt/locust/locustfile.py --worker --master-host master
+    volumes:
+      - ./:/mnt/locust
+    depends_on:
+      - master
+    environment:
+      - LOCUST_PLAYWRIGHT_HEADLESS=true
+      - TARGET_BASE_URL=${TARGET_BASE_URL:-https://apps.private.cytoreason.com/platform/customers/pyy}
+      - TARGET_API_URL=${TARGET_API_URL:-https://api.platform.private.cytoreason.com/v1.0/customer/pyy/e2/platform}
+      - DEFAULT_USERNAME=${DEFAULT_USERNAME:-ui.automation@cytoreason.com}
+      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-U!a@zMatE}
+      - AUTH_TOKEN=${AUTH_TOKEN:-}
+    # Resource limits to ensure headroom (Master QA Strategy #3)
+    # Prevents false latency metrics caused by overloaded workers
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G

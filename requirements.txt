@@ -1,5 +1,7 @@
 # Core load testing dependencies
 locust==2.23.1
+locust-plugins
+playwright
 pytest==7.4.3
 pytest-html==4.1.1
 pytest-timeout==2.2.0
