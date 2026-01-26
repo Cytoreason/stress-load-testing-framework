@@ -1,286 +1,317 @@
-# CytoReason Platform Load Testing
+# CytoReason Platform - Hybrid Load Testing Framework
 
-Load testing framework for the CytoReason platform using Locust.
+A comprehensive load testing framework combining **Locust** for high-throughput API stress testing with **Playwright** for real browser-based UI performance measurement.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         HYBRID LOAD TESTING                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│    ┌──────────────────────────────────────────────────────────────────┐     │
+│    │                       LOCUST MASTER                               │     │
+│    │                   http://localhost:8089                           │     │
+│    │                                                                   │     │
+│    │   ┌─────────────────────────────────────────────────────────┐    │     │
+│    │   │           StagedLoadShape Controller                     │    │     │
+│    │   │   • 7-stage ramp pattern (0→10→50→100→0)                │    │     │
+│    │   │   • 56-minute total duration                             │    │     │
+│    │   │   • Automatic user scaling                               │    │     │
+│    │   └─────────────────────────────────────────────────────────┘    │     │
+│    └───────────────────────────┬──────────────────────────────────────┘     │
+│                                │                                             │
+│                ┌───────────────┴───────────────┐                            │
+│                │                               │                            │
+│                ▼                               ▼                            │
+│    ┌───────────────────────┐     ┌───────────────────────┐                 │
+│    │    API STRESSER       │     │    BROWSER USER       │                 │
+│    │   (BackendStresser)   │     │   (PlaywrightUser)    │                 │
+│    │                       │     │                       │                 │
+│    │ • Pure HTTP requests  │     │ • Real Chromium       │                 │
+│    │ • Bearer token auth   │     │ • Auth0 UI login      │                 │
+│    │ • 10 API endpoints    │     │ • 5 page flows        │                 │
+│    │ • 1s between requests │     │ • 5s between actions  │                 │
+│    └───────────┬───────────┘     └───────────┬───────────┘                 │
+│                │                              │                             │
+│                ▼                              ▼                             │
+│    ┌───────────────────────┐     ┌───────────────────────┐                 │
+│    │      API GATEWAY      │     │    WEB APPLICATION    │                 │
+│    │ api.platform.private  │     │   apps.private        │                 │
+│    │ .cytoreason.com       │     │   .cytoreason.com     │                 │
+│    └───────────────────────┘     └───────────────────────┘                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Load Engine** | Locust 2.23.1 | Distributed load generation |
+| **Browser Automation** | Playwright | Real browser UI testing |
+| **Plugin** | locust-plugins | Playwright integration |
+| **Runtime** | Python 3.11+ | Framework runtime |
+| **Authentication** | Auth0 | OAuth2 Bearer tokens |
+| **Containerization** | Docker Compose | Distributed deployment |
 
 ## Quick Start
 
+### 1. Setup Environment
+
 ```bash
-# 1. Activate virtual environment
+# Create and activate virtual environment
+python3 -m venv venv
 source venv/bin/activate
 
-# 2. Create config.yaml with your Bearer token
-# locust_tests/config/config.yaml
+# Install dependencies
+pip install -r requirements.txt
 
-# 3. Run a test
-locust -f locustfile_ui_flow.py --host https://apps.private.cytoreason.com --web-port 8090
-
-# 4. Open browser to http://localhost:8090
+# Install Playwright browsers
+playwright install chromium
 ```
 
-## Available Tests
-
-| Test | File | Description | Peak Users |
-|------|------|-------------|------------|
-| **UI Flow** | `locustfile_ui_flow.py` | Sequential user journey (15 steps) | 50 |
-| **API Stress** | `locustfile_api_stress.py` | Concurrent API endpoint testing | 30 |
-| **Spike** | `locustfile_spike.py` | Sudden traffic spike simulation | 100 |
-| **Data Query** | `locustfile_data_query.py` | Heavy data operations testing | 20 |
-| **High Load** | `locustfile_high_load.py` | 100 users mixed workload (20 min) | **100** |
-
-### Run Examples
+### 2. Configure Authentication
 
 ```bash
-# UI Flow - sequential user journey
-locust -f locustfile_ui_flow.py --web-port 8090
-
-# API Stress - concurrent endpoint testing
-locust -f locustfile_api_stress.py --web-port 8090
-
-# Spike - traffic burst simulation (7 min)
-locust -f locustfile_spike.py --web-port 8090
-
-# Data Query - heavy data operations
-locust -f locustfile_data_query.py --web-port 8090
-
-# High Load - 100 concurrent users (20 min)
-locust -f locustfile_high_load.py --web-port 8090
+# Set your Auth0 bearer token
+export AUTH_TOKEN='Bearer eyJhbG...'
 ```
+
+### 3. Run the Test
+
+```bash
+# Start Locust with staged load shape
+locust -f locustfile.py
+
+# Open http://localhost:8089 and click START
+# The StagedLoadShape will automatically control the test
+```
+
+## Load Test Pattern
+
+The framework uses a **staged ramp pattern** for realistic load testing:
+
+```
+Users
+  │
+100├─────────────────────────────────────────────────────────╮
+   │                                              ╭──────────╯
+ 50├──────────────────────────╮         ╭────────╯
+   │              ╭───────────╯─────────╯
+ 10├──────╮──────╯
+   │    ╱
+  0├───╯──────────────────────────────────────────────────────╯
+   └──┬──┬────┬─────────┬──────────┬───────────────┬──────────┬──
+      0  5    6        16         26              41         51  56 min
+```
+
+| Stage | Users | Duration | Purpose |
+|-------|-------|----------|---------|
+| 1 | 0 → 10 | 5 min | Warm Up |
+| 2 | Hold 10 | 1 min | Baseline |
+| 3 | 10 → 50 | 10 min | Scale Test |
+| 4 | Hold 50 | 10 min | Sustained Load |
+| 5 | 50 → 100 | 15 min | Peak Ramp |
+| 6 | Hold 100 | 10 min | Peak Sustained |
+| 7 | 100 → 0 | 5 min | Ramp Down |
+
+**Total Duration: 56 minutes**
+
+## What We Test
+
+### API Endpoints (10 endpoints)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/` | Health Check |
+| `GET` | `/v1.0/customer/pyy/e2/platform/admin/tenant` | Authentication |
+| `POST` | `/v1.0/customer/pyy/e2/platform/project/fetch/catalog` | Project Catalog |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=question_index` | Question Index |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=gene` | Gene Data |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=meta_contexts_datasets_map` | Meta Contexts |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=gene_expression_differences_meta` | Gene Expression |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=model_diseases` | Disease Models |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=cell_view` | Cell View |
+| `POST` | `/v1.0/customer/pyy/e2/platform/query/fetch?resourceType=total_project_counters` | Counters |
+
+### UI Pages (5 browser flows)
+
+| Page | URL | Measurements |
+|------|-----|--------------|
+| **Landing Page** | `/platform/customers/pyy/` | Full page load, dashboard render |
+| **Disease Explorer** | `/platform/customers/pyy/disease-explorer/differential-expression` | Data visualization |
+| **Programs** | `/platform/customers/pyy/programs` | Table render time |
+| **CytoPedia** | `/platform/customers/pyy/cytopedia` | Search interface |
+| **Sidebar Navigation** | `/platform/customers/pyy/` | Navigation responsiveness |
 
 ## Project Structure
 
 ```
-├── locustfile_ui_flow.py          # UI Flow test entry
-├── locustfile_api_stress.py       # API Stress test entry
-├── locustfile_spike.py            # Spike test entry
-├── locustfile_data_query.py       # Data Query test entry
-├── locustfile_high_load.py        # High Load test entry (100 users)
-├── locust_tests/
-│   ├── config/
-│   │   └── config.yaml            # Configuration (Bearer token)
-│   ├── locustfiles/
-│   │   ├── base.py                # Base class for all tests
-│   │   ├── ui_flow_test.py        # UI flow implementation
-│   │   ├── api_stress_test.py     # API stress implementation
-│   │   ├── spike_test.py          # Spike test implementation
-│   │   ├── data_query_test.py     # Data query implementation
-│   │   └── high_load_test.py      # High load implementation
-│   └── utils/
-│       ├── config_loader.py       # Configuration management
-│       └── logger.py              # Logging utility
-└── requirements.txt               # Python dependencies
+stress-load-testing-framework/
+├── locustfile.py              # Main entry point with StagedLoadShape
+├── requirements.txt           # Python dependencies
+├── docker-compose.yml         # Docker distributed deployment
+│
+├── scenarios/                 # User scenarios
+│   ├── api_user.py           # BackendStresser - API load generation
+│   └── ui_user.py            # UIStressUser - Playwright browser testing
+│
+├── common/                    # Shared utilities
+│   ├── config.py             # Configuration management
+│   ├── auth_util.py          # Authentication helpers
+│   └── data_loader.py        # Test data loading
+│
+├── pages/                     # Page Object Models (for UI tests)
+│   ├── base_page.py          # Base page class
+│   ├── login_page.py         # Auth0 login page
+│   └── dashboard_page.py     # Dashboard page
+│
+└── locust_tests/             # Legacy test implementations
+    ├── config/
+    │   └── config.yaml       # Configuration file
+    └── locustfiles/
+        ├── base.py           # Base test class
+        └── high_load_test.py # High load test
+```
+
+## User Distribution
+
+At peak load (100 users), the framework distributes:
+
+```
+┌────────────────────────────────────────────────┐
+│  Total Users: 100                              │
+│  ├── Browser Users: ~83 (weight: 5)            │
+│  │   └── RAM: ~25GB (300MB × 83)               │
+│  └── API Users: ~17 (weight: 1)                │
+│      └── RAM: ~34MB (2MB × 17)                 │
+└────────────────────────────────────────────────┘
+```
+
+## Running Tests
+
+### Web UI Mode (Recommended)
+
+```bash
+# Start Locust server
+locust -f locustfile.py
+
+# Open http://localhost:8089 and click START
+```
+
+### Headless Mode
+
+```bash
+# Run for specific duration
+locust -f locustfile.py --headless -t 56m
+
+# Export results to CSV
+locust -f locustfile.py --headless -t 56m --csv=results
+```
+
+### Docker Distributed Mode
+
+```bash
+# Start master + 4 workers
+docker-compose up --scale worker=4
+
+# Open http://localhost:8089
 ```
 
 ## Configuration
 
-### Bearer Token
+### Environment Variables
 
-The test requires a valid Bearer token. To configure:
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `AUTH_TOKEN` | Auth0 Bearer token | Yes |
+| `TARGET_BASE_URL` | Web app URL | No (default set) |
+| `TARGET_API_URL` | API URL | No (default set) |
+| `DEFAULT_USERNAME` | Auth0 email | No (default set) |
+| `DEFAULT_PASSWORD` | Auth0 password | No (default set) |
+
+### Default Credentials
+
+```
+Username: ui.automation@cytoreason.com
+Password: U!a@zMatE
+```
+
+### Getting a Bearer Token
 
 1. Login to https://apps.private.cytoreason.com/platform/customers/pyy/
 2. Open DevTools (F12) → Network tab
 3. Filter by `api.platform.private`
-4. Click any request → Headers → Copy `Authorization: Bearer eyJ...`
-5. Paste the token (without "Bearer " prefix) in `locust_tests/config/config.yaml`:
+4. Copy the `Authorization: Bearer eyJ...` header value
+5. Export: `export AUTH_TOKEN='Bearer eyJ...'`
 
-```yaml
-auth:
-  bearer_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIs..."
-```
+> **Note:** Tokens expire after ~24 hours
 
- Tokens expire after ~24 hours. Get a new one if you see 401 errors.
+## Test Results
 
-## Test Steps (ST-01 to ST-15)
+After running, check:
 
-The UI flow test simulates real user journeys:
+- **Locust Web UI** - Real-time charts at http://localhost:8089
+- **CSV Reports** - `results_stats.csv`, `results_failures.csv`
+- **HTML Report** - Generated report with full statistics
 
-| Step | Description | Endpoint |
-|------|-------------|----------|
-| ST-01 | Landing + Auth | `/admin/tenant` |
-| ST-02 | Project Catalog | `/project/fetch/catalog` |
-| ST-03 | Question Index | `resourceType=question_index` |
-| ST-04 | Gene Data | `resourceType=gene` |
-| ST-05 | Disease Explorer | Page navigation |
-| ST-06 | Meta Contexts | `resourceType=meta_contexts_datasets_map` |
-| ST-07 | Gene Expr Meta | `resourceType=gene_expression_differences_meta` |
-| ST-08 | Gene Expression | `resourceType=gene_expression_differences` |
-| ST-09 | Cell Abundance | `resourceType=cell_abundance_differences` |
-| ST-10 | Geneset Grouped | `resourceType=geneset_grouped` |
-| ST-11 | Geneset Regulation | `resourceType=geneset_expression_regulation_differences` |
-| ST-12 | Target-Cell Page | Page navigation |
-| ST-13 | Cell Abundance Meta | `resourceType=cell_abundance_differences_meta` |
-| ST-14 | Switch Disease | Switch between diseases |
-| ST-15 | Return to Landing | Complete journey |
+### Key Metrics
 
-## Load Pattern
-
-The test uses a custom LoadTestShape:
-
-```
-0 → 5 users    over 2 min   (warm up)
-Hold at 5      for 5 min
-5 → 20 users   over 5 min
-Hold at 20     for 10 min
-20 → 50 users  over 10 min
-Hold at 50     for 15 min
-50 → 0 users   over 3 min   (ramp down)
-
-Total: ~50 minutes
-```
+| Metric | Target | Description |
+|--------|--------|-------------|
+| **Failure Rate** | < 1% | Percentage of failed requests |
+| **Median Response** | < 200ms | 50th percentile latency |
+| **P95 Response** | < 1s | 95th percentile latency |
+| **P99 Response** | < 5s | 99th percentile latency |
 
 ## Diseases Tested
 
-- Ulcerative Colitis (colon)
-- Crohn's Disease (colon)
-- Celiac Disease (duodenum)
-- Systemic Sclerosis (skin)
+The framework tests with these disease contexts:
 
-## Running Without UI
+- Ulcerative Colitis (UC)
+- Crohn's Disease (CD)
+- Chronic Obstructive Pulmonary Disease (COPD)
+- Idiopathic Pulmonary Fibrosis (IPF)
+- Atopic Dermatitis (AD)
+- Psoriasis (PSO)
+- Rheumatoid Arthritis (RA)
+- Systemic Lupus Erythematosus (SLE)
 
-```bash
-# Run headless with specific user count and duration
-locust -f locustfile_ui_flow.py \
-  --host https://apps.private.cytoreason.com \
-  --headless \
-  --users 10 \
-  --spawn-rate 1 \
-  --run-time 5m \
-  --csv=results
-```
+## Troubleshooting
 
-## Results
+### Common Issues
 
-After running, check:
-- `results_stats.csv` - Request statistics
-- `results_failures.csv` - Failed requests
-- Locust web UI charts for real-time monitoring
+| Issue | Solution |
+|-------|----------|
+| `401 Unauthorized` | Token expired - get a new one |
+| `502 Bad Gateway` | Server overloaded - reduce users |
+| `Stuck at N users` | Playwright slow to spawn - lower spawn rate |
+| `Out of memory` | Too many browser users - reduce browser weight |
 
-## Adding New Tests
+### Browser User Memory
 
-### 1. Create a New Test File
+Each Playwright browser uses ~300MB RAM. At 100 users with 5:1 ratio:
+- 83 browsers × 300MB = **~25GB RAM needed**
 
-Create a new file in `locust_tests/locustfiles/`, e.g., `my_new_test.py`:
+For lower memory environments, adjust weights in `locustfile.py`:
 
 ```python
-from locust import HttpUser, task, between, SequentialTaskSet
-from locust_tests.utils.logger import setup_logger
-import random
-import time
-import yaml
-import os
+class BrowserUser(UIStressUser):
+    weight = 1  # Reduce browser proportion
 
-logger = setup_logger()
-
-# Load Bearer token from config
-BEARER_TOKEN = None
-try:
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml')
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-        BEARER_TOKEN = config.get('auth', {}).get('bearer_token')
-except Exception as e:
-    logger.warning(f"Could not load bearer token: {e}")
-
-
-class MyTaskSet(SequentialTaskSet):
-    """Sequential user journey - tasks execute in order"""
-    
-    def on_start(self):
-        """Initialize user session (runs once per user)"""
-        self.auth_headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-        if BEARER_TOKEN:
-            self.auth_headers["Authorization"] = f"Bearer {BEARER_TOKEN}"
-    
-    @task
-    def step_01_example(self):
-        """First step in the journey"""
-        with self.client.get("/api/endpoint", name="ST-01: Example", 
-                            headers=self.auth_headers, catch_response=True) as r:
-            if r.status_code == 200:
-                r.success()
-            else:
-                r.failure(f"Failed: {r.status_code}")
-        
-        time.sleep(random.uniform(0.5, 1))  # Think time
-    
-    @task
-    def step_02_post_example(self):
-        """Second step - POST request"""
-        payload = {"key": "value"}
-        
-        with self.client.post("/api/another", name="ST-02: Post Example",
-                             json=payload, headers=self.auth_headers, 
-                             catch_response=True) as r:
-            if r.status_code in [200, 201]:
-                r.success()
-            else:
-                r.failure(f"Failed: {r.status_code}")
-        
-        time.sleep(random.uniform(1, 2))
-
-
-class MyNewUser(HttpUser):
-    """User class - Locust spawns instances of this"""
-    tasks = [MyTaskSet]
-    wait_time = between(1, 3)  # Wait between task iterations
-    host = "https://your-api-host.com"
+class APIStresser(BackendStresser):
+    weight = 10  # Increase API proportion
 ```
 
-### 2. Create an Entry Point File
+## Contributing
 
-Create a new entry point in the project root, e.g., `locustfile_my_test.py`:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests locally
+5. Submit a pull request
 
-```python
-from locust import LoadTestShape
-from locust_tests.locustfiles.my_new_test import MyNewUser
+## License
 
-__all__ = ['MyNewUser']
-
-# Optional: Add a custom load shape
-class MyTestShape(LoadTestShape):
-    """Custom load pattern"""
-    
-    stages = [
-        {"duration": 60, "users": 5, "spawn_rate": 1},    # Ramp to 5
-        {"duration": 180, "users": 5, "spawn_rate": 1},   # Hold at 5
-        {"duration": 300, "users": 10, "spawn_rate": 1},  # Ramp to 10
-    ]
-    
-    def tick(self):
-        run_time = self.get_run_time()
-        for stage in self.stages:
-            if run_time < stage["duration"]:
-                return (stage["users"], stage["spawn_rate"])
-        return None  # Stop test
-```
-
-### 3. Run Your Test
-
-```bash
-# With web UI
-locust -f locustfile_my_test.py --host https://your-api-host.com --web-port 8090
-
-# Headless mode
-locust -f locustfile_my_test.py --host https://your-api-host.com \
-  --headless --users 5 --spawn-rate 1 --run-time 5m
-```
-
-### Key Patterns
-
-| Pattern | Use Case |
-|---------|----------|
-| `SequentialTaskSet` | Steps execute in order (user journeys) |
-| `TaskSet` | Steps execute randomly based on weight |
-| `@task(weight)` | Higher weight = more frequent execution |
-| `catch_response=True` | Manual pass/fail control |
-| `time.sleep()` | Simulate user think time |
-
-### Tips
-
-- **Capture HAR files**: Use browser DevTools to record real API calls, then replicate them
-- **Use `name` parameter**: Group similar requests under one name in reports
-- **Handle auth failures**: Check for 401/403 and fail gracefully
-- **Add think time**: Use `time.sleep(random.uniform(min, max))` between steps
-- **Log important events**: Use the logger for debugging
+Internal use only - CytoReason
