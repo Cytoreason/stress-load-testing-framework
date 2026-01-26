@@ -231,11 +231,13 @@ docker-compose up --scale worker=4
 | `DEFAULT_USERNAME` | Auth0 email | No (default set) |
 | `DEFAULT_PASSWORD` | Auth0 password | No (default set) |
 
-### Default Credentials
+### Credentials
 
-```
-Username: ui.automation@cytoreason.com
-Password: U!a@zMatE
+Credentials are configured via environment variables or `common/config.py`. Contact your team lead for access credentials.
+
+```bash
+export DEFAULT_USERNAME='your-email@cytoreason.com'
+export DEFAULT_PASSWORD='your-password'
 ```
 
 ### Getting a Bearer Token

@@ -49,10 +49,10 @@ class Config:
         default_factory=lambda: os.getenv("AUTH_TOKEN")
     )
     default_username: str = field(
-        default_factory=lambda: os.getenv("DEFAULT_USERNAME", "ui.automation@cytoreason.com")
+        default_factory=lambda: os.getenv("DEFAULT_USERNAME", "")
     )
     default_password: str = field(
-        default_factory=lambda: os.getenv("DEFAULT_PASSWORD", "U!a@zMatE")
+        default_factory=lambda: os.getenv("DEFAULT_PASSWORD", "")
     )
     
     # CytoReason specific paths

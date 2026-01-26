@@ -28,8 +28,8 @@ services:
       - LOCUST_PLAYWRIGHT_HEADLESS=true
       - TARGET_BASE_URL=${TARGET_BASE_URL:-https://apps.private.cytoreason.com/platform/customers/pyy}
       - TARGET_API_URL=${TARGET_API_URL:-https://api.platform.private.cytoreason.com/v1.0/customer/pyy/e2/platform}
-      - DEFAULT_USERNAME=${DEFAULT_USERNAME:-ui.automation@cytoreason.com}
-      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-U!a@zMatE}
+      - DEFAULT_USERNAME=${DEFAULT_USERNAME}
+      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD}
       - AUTH_TOKEN=${AUTH_TOKEN:-}
 
   worker:
@@ -45,8 +45,8 @@ services:
       - LOCUST_PLAYWRIGHT_HEADLESS=true
       - TARGET_BASE_URL=${TARGET_BASE_URL:-https://apps.private.cytoreason.com/platform/customers/pyy}
       - TARGET_API_URL=${TARGET_API_URL:-https://api.platform.private.cytoreason.com/v1.0/customer/pyy/e2/platform}
-      - DEFAULT_USERNAME=${DEFAULT_USERNAME:-ui.automation@cytoreason.com}
-      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-U!a@zMatE}
+      - DEFAULT_USERNAME=${DEFAULT_USERNAME}
+      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD}
       - AUTH_TOKEN=${AUTH_TOKEN:-}
     # Resource limits to ensure headroom (Master QA Strategy #3)
     # Prevents false latency metrics caused by overloaded workers

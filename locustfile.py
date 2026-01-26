@@ -23,8 +23,9 @@ Usage:
     # Then click START in web UI (users/spawn rate ignored - shape controls it)
 
 Credentials:
-    Username: ui.automation@cytoreason.com
-    Password: U!a@zMatE
+    Set via environment variables:
+    - DEFAULT_USERNAME
+    - DEFAULT_PASSWORD
 """
 
 from locust import HttpUser, task, constant, LoadTestShape
