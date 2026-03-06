@@ -1,24 +1,10 @@
-# Core load testing dependencies
-locust==2.23.1
-locust-plugins
-playwright
-pytest==7.4.3
-pytest-html==4.1.1
-pytest-timeout==2.2.0
+playwright>=1.50.0
+pytest>=8.0.0
+pytest-playwright>=0.7.0
 
-# HTTP and API testing
-requests==2.31.0
-urllib3==2.1.0
+locust>=2.20.0
+locust-plugins>=5.0.0
 
-# Configuration management
-pyyaml==6.0.1
-
-# Data handling and reporting
-pandas>=2.2.0
-numpy>=1.26.2
-
-# Logging and monitoring
-colorlog==6.8.0
-
-# Utilities
-Faker==22.0.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+tenacity>=8.0.0
