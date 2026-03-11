@@ -17,7 +17,7 @@ LIVE VALIDATED (2026-03-11):
 """
 from __future__ import annotations
 
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
 from src.config import settings
 from src.ui.pages.base_page import BasePage
@@ -61,9 +61,30 @@ class DxPage(BasePage):
             Substring of the model name, e.g. "Chronic Obstructive Pulmonary Disease"
             for COPD, or "Ulcerative Colitis" for UC.
         """
-        item = self.page.locator("a, button, li").filter(has_text=has_text).first
+        # Radix Select renders items in a portal overlay; wait for it to appear.
+        # Items use role="option" inside a role="listbox".
+        dropdown = self.page.locator("[role='listbox'], [role='menu']")
+        try:
+            await dropdown.first.wait_for(state="visible", timeout=8_000)
+        except PlaywrightTimeoutError:
+            pass  # Dropdown may use a non-standard structure; proceed anyway
+
+        # Include role="option" which Radix uses for select items
+        item = self.page.locator(
+            "a, button, li, [role='option']"
+        ).filter(has_text=has_text).first
         await self.safe_click(item)
-        # Wait for the picker to update (page settling after model switch)
+
+        # After a model switch the SPA fires API calls to load the new model.
+        # Use the Inventory link as readiness signal vs networkidle.
+        inventory_link = self.page.get_by_role(
+            "link", name=inventory_sel.inventory_link_name
+        )
+        await inventory_link.wait_for(
+            state="visible", timeout=max(settings.navigation_timeout_ms, 90_000)
+        )
+
+        # Confirm the model picker re-rendered with the new model
         await self._model_picker.wait_for(
             state="visible", timeout=settings.navigation_timeout_ms
         )
@@ -86,15 +107,22 @@ class DxPage(BasePage):
         """
         Open a filter combobox (identified by *has_text* of its current value)
         then dismiss with Escape to simulate a user browsing options.
+
+        Best-effort: skips silently if the combobox isn't visible (e.g. the
+        filter panel shows different defaults after an analysis-type switch).
         """
         combo = self.page.locator("button[role='combobox']").filter(
             has_text=has_text
         ).first
-        await self.safe_click(combo)
-        await self.page.keyboard.press("Escape")
+        try:
+            await combo.wait_for(state="visible", timeout=8_000)
+            await combo.click()
+            await self.page.keyboard.press("Escape")
+        except PlaywrightTimeoutError:
+            pass  # Filter may be absent for this analysis type; skip
 
     # --------------------------------------------------------- inventory nav
     async def navigate_to_inventory(self) -> None:
         """Click the Inventory side-nav link."""
         link = self.page.get_by_role("link", name=inventory_sel.inventory_link_name)
-        await self.safe_click(link)
+        await self.safe_click(link, timeout_ms=max(settings.navigation_timeout_ms, 90_000))

@@ -203,7 +203,7 @@ async def _ensure_authenticated_session(user: PlaywrightUser) -> None:
 
         async with event(user, "UI_Login_Auth0"):
             lp = LoginPage(user.page)
-            await user.page.goto(settings.base_url, wait_until="domcontentloaded")
+            await user.page.goto(settings.base_url, wait_until="networkidle")
 
             # Handle both direct Auth0 redirect and embedded login form
             if "auth0.com" in user.page.url:
@@ -222,7 +222,7 @@ async def _ensure_authenticated_session(user: PlaywrightUser) -> None:
                 try:
                     await user.page.wait_for_url(
                         f"**{settings.base_url}/**",
-                        wait_until="domcontentloaded",
+                        wait_until="networkidle",
                         timeout=settings.navigation_timeout_ms,
                     )
                     await user.page.get_by_role(
@@ -232,7 +232,7 @@ async def _ensure_authenticated_session(user: PlaywrightUser) -> None:
                     break
                 except PlaywrightTimeoutError:
                     if attempt == 0:
-                        await user.page.reload(wait_until="domcontentloaded")
+                        await user.page.reload(wait_until="networkidle")
                     else:
                         raise
 
