@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "cytoreason-ui-perf"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.50.0",
+    "pytest>=8.0.0",
+    "pytest-playwright>=0.7.0",
+    "locust>=2.20.0",
+    "locust-plugins>=5.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "tenacity>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+markers = [
+    "smoke: fast pre-flight checks; must pass before any load run",
+    "ui: full browser-driven UI interaction tests",
+    "load: tests that drive Locust load profiles",
+    "stress: tests that drive Locust stress / ramp-to-break profiles",
+    "selector: validate that a DOM selector is still present on the page",
+]
+
+# Show test durations for every test (helps spot slow pages)
+addopts = [
+    "--tb=short",
+    "--strict-markers",
+    "-v",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "perf*"]

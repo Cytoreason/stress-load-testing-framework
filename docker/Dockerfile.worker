@@ -1,0 +1,78 @@
+# =============================================================================
+# CytoReason UI Performance Worker Node
+# =============================================================================
+#
+# Each worker node runs Locust + headless Chromium and receives task
+# dispatches from the Locust master.
+#
+# Sizing guidance (headless Chromium):
+#   - ~200–400 MB RAM + ~10% CPU per concurrent browser session
+#   - Recommended: 15–20 users per worker node
+#   - For 100 concurrent users: 5–7 workers on 4-core / 8 GB nodes
+#
+# Build:
+#   docker build -f docker/Dockerfile.worker -t cytoreason-ui-worker .
+#
+# Run (worker connecting to master at $MASTER_HOST):
+#   docker run --rm \
+#     --env-file .env \
+#     -e NODE_ID=worker-1 \
+#     -e LOCUST_MASTER_HOST=<master-ip> \
+#     cytoreason-ui-worker
+# =============================================================================
+
+FROM python:3.11-slim-bookworm
+
+# Chromium system dependencies (Playwright headless-shell requirements)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies before copying source (layer caching)
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright Chromium browser
+RUN playwright install chromium
+
+# Copy application source
+COPY src/ ./src/
+COPY perf/ ./perf/
+COPY .env.example ./.env.example
+
+# Artifacts directory (mount as a volume for result collection)
+RUN mkdir -p /app/artifacts
+
+# Increase open file descriptor limit for many concurrent browser contexts
+RUN echo "root soft nofile 65536" >> /etc/security/limits.conf && \
+    echo "root hard nofile 65536" >> /etc/security/limits.conf
+
+# Worker entrypoint – joins the master at LOCUST_MASTER_HOST:LOCUST_MASTER_PORT
+# Override NODE_ID per container to identify workers in reports.
+ENV HEADLESS=1
+ENV BROWSER=chromium
+ENV ARTIFACTS_DIR=/app/artifacts
+
+CMD ["sh", "-c", \
+  "locust \
+    --worker \
+    --master-host=${LOCUST_MASTER_HOST:-127.0.0.1} \
+    --master-port=${LOCUST_MASTER_PORT:-5557} \
+    -f perf/locustfile.py \
+    --loglevel INFO"]

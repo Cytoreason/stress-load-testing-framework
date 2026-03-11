@@ -1,0 +1,129 @@
+# =============================================================================
+# CytoReason UI Performance Framework – Distributed Locust Deployment
+# =============================================================================
+#
+# Topology:
+#   - 1 Locust master  (coordinates users, aggregates metrics, serves web UI)
+#   - N Locust workers (each runs real headless Chromium browser sessions)
+#
+# Sizing:
+#   Each worker handles 15–20 concurrent browser users safely.
+#   Default: 6 workers → supports 90–120 concurrent users.
+#   Scale workers up/down via: docker compose up --scale worker=N
+#
+# Usage:
+#   # Copy and fill credentials
+#   cp .env.example .env
+#   vim .env   # set BASE_URL, USERNAME, PASSWORD, etc.
+#
+#   # Start with 6 workers (load test, 100 users)
+#   docker compose -f docker/docker-compose.yml up --scale worker=6
+#
+#   # Open Locust web UI
+#   open http://localhost:8089
+#
+#   # Headless run (no web UI, auto-start):
+#   docker compose -f docker/docker-compose.yml \
+#     run --rm master \
+#     locust --master --headless \
+#       -f perf/locustfile.py \
+#       --users 100 \
+#       --expect-workers 6 \
+#       -H ${BASE_URL}
+#
+#   # View aggregated results
+#   ls artifacts/
+#
+# =============================================================================
+
+services:
+
+  # --------------------------------------------------------------------------
+  # Master node: coordinates the run, serves the Locust web UI
+  # --------------------------------------------------------------------------
+  master:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    image: cytoreason-ui-worker:latest
+    hostname: locust-master
+    ports:
+      - "8089:8089"   # Locust web UI
+      - "5557:5557"   # Worker communication port
+      - "5558:5558"   # Worker heartbeat port
+    volumes:
+      - ../artifacts:/app/artifacts
+    env_file:
+      - ../.env
+    environment:
+      NODE_ID: master
+    command: >
+      locust
+        --master
+        --master-bind-host=0.0.0.0
+        --master-bind-port=5557
+        -f perf/locustfile.py
+        --web-host=0.0.0.0
+        --web-port=8089
+        --loglevel=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Worker nodes: each runs headless Chromium browser sessions
+  # Scale with: docker compose up --scale worker=N
+  # --------------------------------------------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    image: cytoreason-ui-worker:latest
+    depends_on:
+      master:
+        condition: service_healthy
+    volumes:
+      - ../artifacts:/app/artifacts
+    env_file:
+      - ../.env
+    environment:
+      LOCUST_MASTER_HOST: master
+      LOCUST_MASTER_PORT: "5557"
+      # NODE_ID is set dynamically; override per container if needed
+      NODE_ID: "worker-${HOSTNAME:-unknown}"
+      HEADLESS: "1"
+    # Resource limits: 4 CPUs / 8 GB RAM per worker (for ~15–20 browser users)
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8G
+      replicas: 6
+    command: >
+      locust
+        --worker
+        --master-host=master
+        --master-port=5557
+        -f perf/locustfile.py
+        --loglevel=INFO
+    restart: on-failure:3
+
+  # --------------------------------------------------------------------------
+  # Optional: Prometheus + Grafana for real-time metrics visualisation
+  # Uncomment if you have these services deployed in your environment.
+  # --------------------------------------------------------------------------
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+  #
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     GF_SECURITY_ADMIN_PASSWORD: "admin"
