@@ -3,23 +3,49 @@ Validated UI selectors for the CytoReason platform.
 
 VALIDATION NOTES
 ----------------
-All selectors below were derived from real platform codebase inspection
-and interaction with the live staging environment:
+All selectors were validated against the LIVE staging environment:
 
-  Target: https://apps.private.cytoreason.com/platform/customers/pyy/
+  https://apps.private.cytoreason.com/platform/customers/pyy/
+
+Validation method: Playwright headless Chromium, authenticated session,
+full page inspection across all target pages (2026-03-11).
 
 SELECTOR STRATEGY
 -----------------
 Priority order (most to least stable):
   1. ARIA role + accessible name  → get_by_role(role, name=...)
   2. Label text                   → get_by_label(label)
-  3. Placeholder text             → get_by_placeholder(text)
+  3. has_text filter              → locator(...).filter(has_text=...)
   4. Visible text content         → get_by_text(text)
-  5. Test ID attribute            → get_by_test_id(id)  [use if available]
+  5. Test ID attribute            → get_by_test_id(id)  [not yet used in app]
   6. CSS class / ID               [last resort – avoid]
 
-Re-validation: Run `pytest -m selector` to verify all selectors are still
-present before any load or stress run.
+LIVE VALIDATION RESULTS (2026-03-11)
+-------------------------------------
+  ✓ Auth0 login labels ("Email address *", "Password *", "Continue")
+  ✓ App ready signal: link "Programs"
+  ✓ Programs search textbox (matched by placeholder via accessible name)
+  ✓ Programs "My Projects" / "All Projects" buttons
+  ✓ CytoPedia search textbox
+  ✓ CytoPedia "Entities" filter button
+  ✓ CytoPedia "Cell Entities" result button
+  ✓ DX page model button (filter has_text "Disease Model")
+  ✓ DX analysis radios: "Target Gene", "Target Signature", "Meta Analysis", "Per Dataset"
+  ✓ DX filter comboboxes: "bronchus", "expression differences"
+  ✓ DX "Inventory" side-nav link
+  ✓ Inventory "Disease Biology" category button
+  ✓ Inventory items after Disease Biology expansion (format "N.Item Name")
+
+CORRECTED FROM INITIAL ASSUMPTIONS
+------------------------------------
+  - ASTH combobox has NO aria-label → must use has_text filter, not get_by_role(name=...)
+  - "Disease Models" button does NOT exist → the model name button IS the picker
+  - "White Space" radio does NOT exist → real toggles: Target Gene / Target Signature
+  - Filter "disease vs control" is WRONG → actual: "expression differences: disease vs healthy"
+  - Inventory items format is "N.Item Name" (NO spaces around dot)
+  - Only 6 Disease Biology items exist for ASTH (items 7/8 do not exist)
+
+Re-validation: Run `pytest -m selector` before every load/stress run.
 """
 from __future__ import annotations
 
@@ -62,22 +88,26 @@ class _ProgramsSelectors:
 
 
 # ---------------------------------------------------------------------------
-# Inventory page  (accessible via Disease Explorer side nav)
+# Inventory page  (URL: /disease-explorer/model-inventory/<model-slug>)
+# Accessed by clicking the "Inventory" side-nav link on the DX page.
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class _InventorySelectors:
-    # Side-nav link that navigates to the Inventory view
+    # Side-nav link visible on DX page → navigates to inventory
     inventory_link_name: str = "Inventory"
 
-    # Disease Biology accordion / category button
+    # Category toggle button (expands the list of inventory items)
     disease_biology_button: str = "Disease Biology"
 
-    # Individual inventory items (role=link, name=exact text)
-    item_target_expression: str = "1 . Target Expression in Disease"
-    item_target_regulation: str = "2 . Target Regulation in Disease"
-    item_cell_abundance: str = "3 . Differential Cell Abundance in Disease"
-    item_disease_severity: str = "7 . Association with disease severity"
-    item_soc_treatment: str = "8 . Standard of care (SOC) treatment effect spaces"
+    # Inventory items after Disease Biology expansion.
+    # LIVE VALIDATED format: "N.Item Name" (NO spaces around the dot).
+    # These are both links and buttons in the DOM; use locator filter or link role.
+    item_target_expression: str = "Target Expression in Disease"
+    item_target_regulation: str = "Target Regulation in Disease"
+    item_cell_abundance: str = "Differential Cell Abundance in Disease"
+    item_target_cell_assoc: str = "Target-Cell Association"
+    item_target_pathway_assoc: str = "Target-Pathway Association"
+    item_diff_expression_diseases: str = "Differential expression across diseases"
 
 
 # ---------------------------------------------------------------------------
@@ -85,29 +115,36 @@ class _InventorySelectors:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class _DxSelectors:
-    # URL path suffix for the Differential Expression DX view
+    # URL path suffix for the Differential Expression view
     de_path: str = "/disease-explorer/differential-expression"
 
-    # Disease model selector comboboxes (role=combobox, name=partial match)
-    # Validated names from the live ASTH model page
-    asth_model_combobox: str = "ASTH Disease Model Asthma"
+    # Model picker button.
+    # LIVE VALIDATED: the button shows the current model name inline, e.g.
+    # "ASTH\nDisease Model\nAsthma". It has NO aria-label.
+    # Selector: locator("button").filter(has_text=model_picker_has_text).first
+    model_picker_has_text: str = "Disease Model"
 
-    # "Disease Models" menu button in side-nav
-    disease_models_button: str = "Disease Models"
-
-    # Analysis type radio buttons
-    radio_white_space: str = "White Space"
+    # Analysis type toggles (role="radio" buttons – NOT HTML radio inputs).
+    # LIVE VALIDATED present on DX page: Target Gene, Target Signature,
+    # Meta Analysis, Per Dataset.  "White Space" does NOT exist.
+    radio_target_gene: str = "Target Gene"
     radio_target_signature: str = "Target Signature"
+    radio_meta_analysis: str = "Meta Analysis"
+    radio_per_dataset: str = "Per Dataset"
 
-    # Filter comboboxes on the ASTH DX view (validated names)
-    combobox_bronchus: str = "bronchus"
-    combobox_disease_vs_control: str = "disease vs control"
-    combobox_fluticasone: str = "Fluticasone"
-    combobox_week1_500ug: str = "Week 1, 500 μg"
+    # Filter comboboxes (Radix UI select triggers, no aria-label).
+    # Identified by has_text of their current value.
+    # LIVE VALIDATED default values on the ASTH DE view:
+    combobox_tissue_has_text: str = "bronchus"
+    combobox_comparison_has_text: str = "expression differences"
 
-    # Additional disease model nav links (regex-friendly exact prefixes)
-    copd_model_link_prefix: str = "COPD"
-    uc_model_link_prefix: str = "UC"
+    # Model names used in the model picker dropdown.
+    # After clicking the model picker button, these appear as clickable items.
+    # LIVE VALIDATED dropdown items (format: "<ABBR><Full Name>" no space):
+    #   ASTHAsthma, CECeliac Disease, COPDChronic Obstructive Pulmonary Disease,
+    #   CDCrohn's Disease, SSCSystemic Sclerosis, UCUlcerative Colitis
+    copd_dropdown_has_text: str = "Chronic Obstructive Pulmonary Disease"
+    uc_dropdown_has_text: str = "Ulcerative Colitis"
 
 
 # ---------------------------------------------------------------------------

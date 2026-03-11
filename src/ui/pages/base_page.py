@@ -40,7 +40,11 @@ class BasePage:
         url_pattern = f"**{path}**" if path else f"**{settings.base_url}**"
 
         for attempt in range(retries + 1):
-            await self.page.goto(url, wait_until="domcontentloaded")
+            # Use networkidle so the React SPA's JS fires and any Auth0
+            # redirect completes before we check the URL.  For pages that
+            # stay on the same origin (already authenticated), networkidle
+            # resolves quickly once the page renders.
+            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
             await self._recover_auth_if_needed()
 
             try:
@@ -53,7 +57,7 @@ class BasePage:
                 return
             except PlaywrightTimeoutError:
                 if attempt < retries:
-                    await self.page.reload(wait_until="domcontentloaded")
+                    await self.page.reload(wait_until="networkidle", timeout=timeout_ms)
                     await self._recover_auth_if_needed()
                 else:
                     raise

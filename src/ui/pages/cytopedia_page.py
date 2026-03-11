@@ -3,12 +3,13 @@ CytoPedia page object.
 
 URL: {base_url}/cytopedia
 
-Validated interactions:
-- Navigate to /cytopedia
-- Wait for the search textbox (page ready signal)
-- Click "Entities" category filter button
-- Type a search query
-- Click a result category link (e.g. "Cell Entities")
+LIVE VALIDATED (2026-03-11):
+- Search textbox: matched by placeholder via accessible name ("Search terms by title or description")
+- Entities button: get_by_role("button", name="Entities", exact=True).first  ✓
+- Cell Entities: get_by_role("button", name="Cell Entities") ✓
+  (rendered as a <button> in an expandable result list, NOT an <a> link)
+- CytoPedia button list on Entities tab: Entities, Evidences, Methods, Concepts, QCM,
+  followed by result items like "Cell Entities", "View All N Results"
 """
 from __future__ import annotations
 

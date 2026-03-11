@@ -94,27 +94,53 @@ async def test_cytopedia_entities_button_present(page: Page) -> None:
 @pytest.mark.smoke
 @pytest.mark.selector
 @pytest.mark.ui
-async def test_dx_page_asth_model_combobox_present(page: Page) -> None:
-    """ASTH model combobox on /disease-explorer/differential-expression must be visible."""
+async def test_dx_page_model_picker_present(page: Page) -> None:
+    """Model picker button (has_text 'Disease Model') must be visible on the DX page.
+
+    LIVE VALIDATED (2026-03-11): The Radix UI combobox has NO aria-label;
+    selector strategy is locator('button').filter(has_text='Disease Model').first.
+    """
     dx = DxPage(page)
     await dx.open()
-    combo = page.get_by_role("combobox", name=dx_sel.asth_model_combobox)
-    await expect(combo).to_be_visible(timeout=settings.navigation_timeout_ms)
+    # Use the same strategy as DxPage._model_picker
+    picker = page.locator("button").filter(has_text=dx_sel.model_picker_has_text).first
+    await expect(picker).to_be_visible(timeout=settings.navigation_timeout_ms)
 
 
 @pytest.mark.smoke
 @pytest.mark.selector
 @pytest.mark.ui
 async def test_dx_page_analysis_radios_present(page: Page) -> None:
-    """White Space and Target Signature radio buttons must be visible."""
+    """Target Gene and Target Signature radio buttons must be visible on the DX page.
+
+    LIVE VALIDATED (2026-03-11): 'White Space' does NOT exist.
+    Real toggles are: Target Gene, Target Signature, Meta Analysis, Per Dataset.
+    """
     dx = DxPage(page)
     await dx.open()
     await expect(
-        page.get_by_role("radio", name=dx_sel.radio_white_space)
+        page.get_by_role("radio", name=dx_sel.radio_target_gene)
     ).to_be_visible(timeout=settings.default_timeout_ms)
     await expect(
         page.get_by_role("radio", name=dx_sel.radio_target_signature)
     ).to_be_visible(timeout=settings.default_timeout_ms)
+
+
+@pytest.mark.smoke
+@pytest.mark.selector
+@pytest.mark.ui
+async def test_dx_page_filter_comboboxes_present(page: Page) -> None:
+    """Tissue and comparison filter comboboxes must be visible on the DX page."""
+    dx = DxPage(page)
+    await dx.open()
+    tissue_combo = page.locator("button[role='combobox']").filter(
+        has_text=dx_sel.combobox_tissue_has_text
+    ).first
+    comparison_combo = page.locator("button[role='combobox']").filter(
+        has_text=dx_sel.combobox_comparison_has_text
+    ).first
+    await expect(tissue_combo).to_be_visible(timeout=settings.default_timeout_ms)
+    await expect(comparison_combo).to_be_visible(timeout=settings.default_timeout_ms)
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +170,11 @@ async def test_inventory_page_disease_biology_button_present(page: Page) -> None
 @pytest.mark.selector
 @pytest.mark.ui
 async def test_inventory_page_item_links_present(page: Page) -> None:
-    """Key inventory item links must be present after opening Inventory."""
+    """Key inventory items must be present after expanding Disease Biology.
+
+    LIVE VALIDATED (2026-03-11): Items appear as both links and buttons (Radix
+    collapsible pattern). Selector uses locator filter with has_text.
+    """
     dx = DxPage(page)
     await dx.open()
     await dx.navigate_to_inventory()
@@ -155,7 +185,9 @@ async def test_inventory_page_item_links_present(page: Page) -> None:
     for item_name in [
         inventory_sel.item_target_expression,
         inventory_sel.item_target_regulation,
+        inventory_sel.item_cell_abundance,
+        inventory_sel.item_target_cell_assoc,
+        inventory_sel.item_target_pathway_assoc,
     ]:
-        await expect(
-            page.get_by_role("link", name=item_name)
-        ).to_be_visible(timeout=settings.default_timeout_ms)
+        item = page.locator("a, button").filter(has_text=item_name).first
+        await expect(item).to_be_visible(timeout=settings.default_timeout_ms)

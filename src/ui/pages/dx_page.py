@@ -3,17 +3,19 @@ Disease Explorer / DX page object.
 
 URL: {base_url}/disease-explorer/differential-expression
 
-Validated interactions:
-- Navigate to the Differential Expression view
-- Wait for the ASTH disease model combobox (page ready signal)
-- Switch between disease models (ASTH, COPD, UC)
-- Select White Space / Target Signature analysis types
-- Interact with filter comboboxes (bronchus, disease vs control, etc.)
-- Navigate to Inventory from side-nav
+LIVE VALIDATED (2026-03-11):
+- Model picker is a <button role="combobox"> with NO aria-label.
+  Must use locator("button").filter(has_text="Disease Model").first
+- Analysis type toggles are <button role="radio">: Target Gene, Target Signature,
+  Meta Analysis, Per Dataset.  "White Space" does NOT exist on this page.
+- Filter comboboxes are Radix UI select triggers with no aria-label;
+  identified by has_text of their current displayed value.
+- Model picker dropdown items (no space between abbr and name):
+  ASTHAsthma, CECeliac Disease, COPDChronic Obstructive Pulmonary Disease,
+  CDCrohn's Disease, SSCSystemic Sclerosis, UCUlcerative Colitis
+- Inventory side-nav: role=link name="Inventory"
 """
 from __future__ import annotations
-
-import re
 
 from playwright.async_api import Page
 
@@ -27,46 +29,72 @@ class DxPage(BasePage):
 
     def __init__(self, page: Page) -> None:
         super().__init__(page)
-        self._asth_model_combo = page.get_by_role(
-            "combobox", name=dx_sel.asth_model_combobox
-        )
+        # Model picker button (page-ready signal).
+        # No aria-label → must use has_text filter.
+        self._model_picker = page.locator("button").filter(
+            has_text=dx_sel.model_picker_has_text
+        ).first
 
     # ------------------------------------------------------------------ open
     async def open(self) -> None:
-        """Navigate to /disease-explorer/differential-expression."""
-        await self.goto_url(self.URL, self._asth_model_combo)
+        """Navigate to the DX page; wait until the model picker is visible."""
+        await self.goto_url(self.URL, self._model_picker)
 
-    # ---------------------------------------------------------- model switcher
-    async def open_disease_models_menu(self) -> None:
-        btn = self.page.get_by_role("button", name=dx_sel.disease_models_button)
-        await self.safe_click(btn)
+    async def wait_for_model_loaded(self) -> None:
+        """Wait for the model picker button to appear (confirms page rendered)."""
+        await self._model_picker.wait_for(
+            state="visible", timeout=settings.navigation_timeout_ms
+        )
 
-    async def select_disease_model_by_link_prefix(self, prefix: str) -> None:
-        """Click the first nav link whose text starts with *prefix*."""
-        link = self.page.get_by_role("link", name=re.compile(rf"^{re.escape(prefix)}\b"))
-        await self.safe_click(link)
+    # ---------------------------------------------------------- model picker
+    async def open_model_picker(self) -> None:
+        """Click the model picker to reveal the model selection dropdown."""
+        await self.safe_click(self._model_picker)
 
-    async def wait_for_model_combobox(self, name_pattern: str) -> None:
-        combo = self.page.get_by_role("combobox", name=re.compile(name_pattern))
-        await combo.wait_for(state="visible", timeout=settings.navigation_timeout_ms)
+    async def select_model_from_dropdown(self, has_text: str) -> None:
+        """
+        Click the model in the open dropdown whose text contains *has_text*.
 
-    # ------------------------------------------------------- analysis controls
-    async def select_white_space_analysis(self) -> None:
-        radio = self.page.get_by_role("radio", name=dx_sel.radio_white_space)
-        await self.safe_click(radio)
+        Parameters
+        ----------
+        has_text : str
+            Substring of the model name, e.g. "Chronic Obstructive Pulmonary Disease"
+            for COPD, or "Ulcerative Colitis" for UC.
+        """
+        item = self.page.locator("a, button, li").filter(has_text=has_text).first
+        await self.safe_click(item)
+        # Wait for the picker to update (page settling after model switch)
+        await self._model_picker.wait_for(
+            state="visible", timeout=settings.navigation_timeout_ms
+        )
+
+    # ------------------------------------------------------- analysis toggles
+    async def select_target_gene_analysis(self) -> None:
+        """Select the Target Gene analysis type (role=radio button)."""
+        await self.safe_click(
+            self.page.get_by_role("radio", name=dx_sel.radio_target_gene)
+        )
 
     async def select_target_signature_analysis(self) -> None:
-        radio = self.page.get_by_role("radio", name=dx_sel.radio_target_signature)
-        await self.safe_click(radio)
+        """Select the Target Signature analysis type (role=radio button)."""
+        await self.safe_click(
+            self.page.get_by_role("radio", name=dx_sel.radio_target_signature)
+        )
 
     # ------------------------------------------------------- filter comboboxes
-    async def open_and_dismiss_combobox(self, combobox_name: str) -> None:
-        """Open a filter combobox dropdown then dismiss it (simulates user browsing)."""
-        combo = self.page.get_by_role("combobox", name=combobox_name)
+    async def open_and_dismiss_combobox(self, has_text: str) -> None:
+        """
+        Open a filter combobox (identified by *has_text* of its current value)
+        then dismiss with Escape to simulate a user browsing options.
+        """
+        combo = self.page.locator("button[role='combobox']").filter(
+            has_text=has_text
+        ).first
         await self.safe_click(combo)
         await self.page.keyboard.press("Escape")
 
     # --------------------------------------------------------- inventory nav
     async def navigate_to_inventory(self) -> None:
+        """Click the Inventory side-nav link."""
         link = self.page.get_by_role("link", name=inventory_sel.inventory_link_name)
         await self.safe_click(link)
