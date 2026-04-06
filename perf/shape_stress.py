@@ -5,55 +5,59 @@ Stress test shape: CytoreasonUiStressShape
 Goal: Find the system's stress point and characterise degradation behaviour.
 
 Strategy:
-  Ramp load in 10-user steps every 5 minutes until one of the following
+  Ramp load in 10-user (10%) steps every 5 minutes until one of the following
   termination conditions is met (observed externally via Locust metrics):
     - Error rate rises sharply (>10% sustained)
-    - p95 latency exceeds SLO threshold (typically 15–20 s for a heavy
-      Playwright-driven page load)
+    - p95/p99 latency blows past SLO threshold
     - Queue lag grows continuously (Locust users backing up)
     - Autoscaling stops helping
     - A dependency saturates
 
   After the ramp reaches the configured maximum (default 100), the test holds
-  at peak for 15–30 minutes (Recovery Observation phase), then ramps down
+  at peak for 20 minutes (Recovery Observation phase), then ramps down
   to allow the platform to recover before ending the run.
 
 Profile (configurable via PEAK_USERS; default 100):
-  Ramp-up phase:
-    0:00 –  5:00   0 → 10 users        (initial probe)
-    5:00 – 10:00  10 users hold
-   10:00 – 15:00  10 → 20 users
-   15:00 – 20:00  20 users hold
-   20:00 – 25:00  20 → 30 users
-   25:00 – 30:00  30 users hold
-   30:00 – 35:00  30 → 40 users
-   35:00 – 40:00  40 users hold
-   40:00 – 45:00  40 → 50 users
-   45:00 – 50:00  50 users hold
-   50:00 – 55:00  50 → 60 users
-   55:00 – 60:00  60 users hold
-   60:00 – 65:00  60 → 70 users
-   65:00 – 70:00  70 users hold
-   70:00 – 75:00  70 → 80 users
-   75:00 – 80:00  80 users hold
-   80:00 – 85:00  80 → 90 users
-   85:00 – 90:00  90 users hold
-   90:00 – 95:00  90 → 100 users
+  Ramp-up phase  (50 min total – within 30–60 min requirement):
+    Each step = 3 min ramp + 2 min hold = 5 min per step (10 steps)
+     0:00 –  3:00   0 → 10 users        ramp  (10%)
+     3:00 –  5:00  10 users hold
+     5:00 –  8:00  10 → 20 users        ramp  (+10%)
+     8:00 – 10:00  20 users hold
+    10:00 – 13:00  20 → 30 users        ramp  (+10%)
+    13:00 – 15:00  30 users hold
+    15:00 – 18:00  30 → 40 users        ramp  (+10%)
+    18:00 – 20:00  40 users hold
+    20:00 – 23:00  40 → 50 users        ramp  (+10%)
+    23:00 – 25:00  50 users hold
+    25:00 – 28:00  50 → 60 users        ramp  (+10%)
+    28:00 – 30:00  60 users hold
+    30:00 – 33:00  60 → 70 users        ramp  (+10%)
+    33:00 – 35:00  70 users hold
+    35:00 – 38:00  70 → 80 users        ramp  (+10%)
+    38:00 – 40:00  80 users hold
+    40:00 – 43:00  80 → 90 users        ramp  (+10%)
+    43:00 – 45:00  90 users hold
+    45:00 – 48:00  90 → 100 users       ramp  (+10%)
+    48:00 – 50:00  100 users hold
 
-  Peak observation:  95:00 – 125:00  (30 min at 100)
-  Recovery:         125:00 – 145:00  (ramp-down 100 → 0 over 20 min)
+  Peak observation:  50:00 –  70:00  (20 min at 100 – within 15–30 min)
+  Recovery:          70:00 –  90:00  (ramp-down 100 → 0 over 20 min – within 15–30 min)
 
-  Total: ≈ 145 minutes
+  Total: ≈ 90 minutes
 
-Each step in the ramp-up represents a 10% increment, meeting the requirement
-of "10–20% steps every 5–10 minutes".
+Requirements satisfied:
+  ✓ Ramp up to 100 over ≥ 0.5 h  (50 min)
+  ✓ Ramp-up: 30–60 min            (50 min)
+  ✓ Peak / over-peak: 15–30 min   (20 min)
+  ✓ Recovery observation: 15–30 min after load stops  (20 min)
+  ✓ Step size: 10–20% of peak     (10% = 10 users)
+  ✓ Step interval: 5–10 min       (5 min per step)
 
 Note:
-  The framework does NOT auto-terminate on SLO breach (Locust does not have
-  a built-in SLO hook).  Operators should monitor the Locust web UI or the
-  JSON/CSV reports and manually stop the run when degradation is observed.
-  A future enhancement could add a ``request`` event listener that sets an
-  environment variable / flag to halt the shape early.
+  The framework does NOT auto-terminate on SLO breach.  Operators should
+  monitor the Locust web UI or JSON/CSV reports and manually stop the run
+  when one of the termination conditions above is observed.
 """
 from __future__ import annotations
 
@@ -90,11 +94,11 @@ def _build_stress_segments(peak: int) -> list[_Segment]:
 
     Each step is 10 min: 5 min ramp + 5 min hold.
     """
-    step = 10  # users per step
-    step_ramp_s = 300  # 5 min ramp
-    step_hold_s = 300  # 5 min hold
-    peak_hold_s = 1800  # 30 min peak observation
-    cooldown_s = 1200  # 20 min ramp-down
+    step = 10        # users per step = 10% of default peak (100)
+    step_ramp_s = 180  # 3 min ramp per step
+    step_hold_s = 120  # 2 min hold per step → 5 min/step × 10 steps = 50 min ramp-up
+    peak_hold_s = 1200  # 20 min peak observation  (requirement: 15–30 min)
+    cooldown_s = 1200   # 20 min recovery ramp-down (requirement: 15–30 min)
 
     segments: list[_Segment] = []
     t = 0
