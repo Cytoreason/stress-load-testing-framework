@@ -192,6 +192,11 @@ async def _create_browser_context(user: PlaywrightUser) -> None:
     user._session_ready = False
     user._logged_in = False
     user._error_screenshot_taken = False
+    # Disable locust_plugins' built-in screenshot-before-event behaviour: it has
+    # no timeout and blocks the failure event from firing when the page is in a
+    # broken state (e.g. DNS resolution failure).  We take screenshots ourselves
+    # in _handle_task_error via asyncio.ensure_future (non-blocking).
+    user.error_screenshot_made = True
 
 
 async def _ensure_authenticated_session(user: PlaywrightUser) -> None:
