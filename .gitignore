@@ -10,3 +10,4 @@ playwright/
 test-results/
 .DS_Store
 *.log
+artifacts/
