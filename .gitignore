@@ -10,4 +10,5 @@ playwright/
 test-results/
 .DS_Store
 *.log
+*.png
 artifacts/
