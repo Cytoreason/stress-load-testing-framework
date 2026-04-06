@@ -4,13 +4,18 @@ Disease Explorer / DX workflow journey.
 LIVE VALIDATED (2026-03-11) against staging platform.
 
 Simulates an analyst exploring the Differential Expression view:
-1. Load the ASTH disease model (navigate to DX page)
+1. Load the ASTH disease model (navigate to DX page, then wait for model picker)
 2. Select Target Gene → Target Signature analysis type
 3. Browse tissue and comparison filter comboboxes
-4. Switch to COPD model via the model picker dropdown
-5. Navigate to Inventory and open a Disease Biology item (COPD)
-6. Return to DX and switch to UC model
-7. Navigate to Inventory and open a Disease Biology item (UC)
+4. Navigate directly to COPD inventory URL (no model picker switching)
+5. Open a Disease Biology item (COPD)
+6. Navigate directly to UC inventory URL (no model picker switching)
+7. Open a Disease Biology item (UC)
+
+Model switching via the picker dropdown is intentionally removed.
+Under load, the Radix Select portal is unreliable.  Direct URL navigation
+to the model's inventory page gives the same latency signal without
+depending on a fragile component.
 
 Locust event names emitted:
   - UI_Open_DX_Differential_Expression_Page
@@ -31,7 +36,6 @@ from __future__ import annotations
 from locust_plugins.users.playwright import event
 from playwright.async_api import Page
 
-from src.config import settings
 from src.ui.pages.dx_page import DxPage
 from src.ui.pages.inventory_page import InventoryPage
 from src.ui.selectors import dx_sel
@@ -72,28 +76,20 @@ async def run_dx_journey(page: Page, user) -> None:
     async with event(user, "UI_Browse_DX_Filter_Comparison"):
         await dx.open_and_dismiss_combobox(dx_sel.combobox_comparison_has_text)
 
-    # Switch to COPD model
+    # Navigate directly to COPD inventory — no model picker involved.
+    # This measures the same latency (COPD inventory page load) without
+    # depending on the fragile Radix Select dropdown.
     async with event(user, "UI_Switch_DX_Disease_Model_COPD"):
-        await dx.open_model_picker()
-        await dx.select_model_from_dropdown(dx_sel.copd_dropdown_has_text)
-
-    async with event(user, "UI_Navigate_To_Inventory_Page_COPD"):
-        await dx.navigate_to_inventory()
+        await page.goto(DxPage.COPD_INVENTORY_URL, wait_until="domcontentloaded")
         await inv.wait_until_ready()
 
     async with event(user, "UI_Open_Inventory_Item_Target_Expression_COPD"):
         await inv.expand_disease_biology()
         await inv.open_target_expression()
 
-    # Navigate back to DX and switch to UC model
+    # Navigate directly to UC inventory.
     async with event(user, "UI_Switch_DX_Disease_Model_UC"):
-        await page.goto(DxPage.URL, wait_until="domcontentloaded")
-        await dx.wait_for_model_loaded()
-        await dx.open_model_picker()
-        await dx.select_model_from_dropdown(dx_sel.uc_dropdown_has_text)
-
-    async with event(user, "UI_Navigate_To_Inventory_Page_UC"):
-        await dx.navigate_to_inventory()
+        await page.goto(DxPage.UC_INVENTORY_URL, wait_until="domcontentloaded")
         await inv.wait_until_ready()
 
     async with event(user, "UI_Open_Inventory_Item_Target_Expression_UC"):

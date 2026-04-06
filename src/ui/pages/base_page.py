@@ -6,6 +6,7 @@ redirect, configurable retries, and consistent wait strategies.
 """
 from __future__ import annotations
 
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 from src.config import settings
@@ -25,51 +26,76 @@ class BasePage:
     async def goto_url(
         self,
         url: str,
-        ready_locator: Locator,
+        ready_locator: Locator | None = None,
         *,
         retries: int = 2,
+        ready_timeout_ms: int | None = None,
     ) -> None:
         """
         Navigate to *url* and wait for *ready_locator* to become visible.
 
-        If Auth0 redirects us away, re-authenticate transparently and retry.
-        Raises ``PlaywrightTimeoutError`` only after all retries are exhausted.
+        Parameters
+        ----------
+        retries:
+            Number of retry attempts after the first failure (default 2).
+        ready_timeout_ms:
+            Timeout for the ready-locator wait specifically.  Defaults to
+            ``navigation_timeout_ms`` floored at 60 s.  Pass a higher value
+            for pages whose API-driven content takes longer to appear
+            (e.g. the DX page model picker needs up to 90 s under load).
+
+        Navigation (goto + wait_for_url) always uses a 60 s floor.
+        Transient network errors and timeouts are both retried.
         """
-        timeout_ms = max(settings.navigation_timeout_ms, 60_000)
+        nav_timeout_ms = max(settings.navigation_timeout_ms, 60_000)
+        _ready_timeout_ms = ready_timeout_ms or nav_timeout_ms
         path = url.replace(settings.base_url, "")
         url_pattern = f"**{path}**" if path else f"**{settings.base_url}**"
 
+        last_err: Exception | None = None
         for attempt in range(retries + 1):
-            # Use domcontentloaded to avoid SPAs with background polling
-            # never reaching networkidle; auth recovery handles redirects.
-            await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-            await self._recover_auth_if_needed()
-
             try:
+                await self.page.goto(url, wait_until="domcontentloaded", timeout=nav_timeout_ms)
+                await self._recover_auth_if_needed()
                 await self.page.wait_for_url(
                     url_pattern,
                     wait_until="domcontentloaded",
-                    timeout=timeout_ms,
+                    timeout=nav_timeout_ms,
                 )
-                await ready_locator.wait_for(state="visible", timeout=timeout_ms)
+                if ready_locator is not None:
+                    await ready_locator.wait_for(state="visible", timeout=_ready_timeout_ms)
                 return
-            except PlaywrightTimeoutError:
+            except (PlaywrightTimeoutError, PlaywrightError) as exc:
+                last_err = exc
                 if attempt < retries:
-                    await self.page.reload(
-                        wait_until="domcontentloaded", timeout=timeout_ms
-                    )
-                    await self._recover_auth_if_needed()
-                else:
-                    raise
+                    await self.page.wait_for_timeout(1_000)
+
+        raise last_err  # type: ignore[misc]
 
     async def _recover_auth_if_needed(self) -> None:
-        """Re-enter credentials when the page unexpectedly lands on Auth0."""
-        if "auth0.com" not in self.page.url:
-            return
-        # Lazy import to avoid circular dependency
-        from src.ui.pages.login_page import LoginPage  # noqa: PLC0415
+        """Re-enter credentials when the page unexpectedly lands on Auth0.
 
-        await LoginPage(self.page).login()
+        Also handles the OAuth callback URL (``/signed-in?code=``) that appears
+        after a silent Auth0 token refresh — the SPA redirects to Auth0 and back
+        without user interaction; we wait for the app to complete that redirect,
+        falling back to navigating home if it stalls.
+        """
+        url = self.page.url
+        if "auth0.com" in url:
+            from src.ui.pages.login_page import LoginPage  # noqa: PLC0415
+            await LoginPage(self.page).login()
+        elif "/signed-in" in url:
+            # Silent token refresh completed — wait for SPA to redirect back
+            try:
+                await self.page.wait_for_url(
+                    f"**{settings.base_url}**",
+                    wait_until="domcontentloaded",
+                    timeout=20_000,
+                )
+            except (PlaywrightTimeoutError, PlaywrightError):
+                await self.page.goto(
+                    settings.base_url, wait_until="domcontentloaded", timeout=30_000
+                )
 
     # ------------------------------------------------------------------
     # Interaction helpers

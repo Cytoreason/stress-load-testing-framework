@@ -35,32 +35,35 @@ Metrics
 
 Event names used (all follow the UI_<Verb>_<Screen/Action> convention):
   UI_Login_Auth0
+  -- programs_journey --
   UI_Open_Programs_Page
   UI_Filter_Programs_My_Projects
   UI_Filter_Programs_All_Projects
   UI_Search_Programs_Query
   UI_Clear_Programs_Search
+  -- inventory_journey --
   UI_Open_DX_Differential_Expression_Page
   UI_Navigate_To_Inventory_Page
   UI_Expand_Inventory_Disease_Biology
   UI_Open_Inventory_Item_Target_Expression
   UI_Open_Inventory_Item_Target_Regulation
   UI_Open_Inventory_Item_Cell_Abundance
-  UI_Open_Inventory_Item_Disease_Severity
-  UI_Open_Inventory_Item_SOC_Treatment
+  UI_Open_Inventory_Item_Target_Cell_Association
+  UI_Open_Inventory_Item_Target_Pathway_Association
+  -- dx_journey --
+  UI_Open_DX_Differential_Expression_Page
   UI_Load_DX_Disease_Model_ASTH
-  UI_Select_DX_White_Space_Analysis
+  UI_Select_DX_Target_Gene_Analysis
   UI_Select_DX_Target_Signature_Analysis
-  UI_Browse_DX_Filter_Bronchus
-  UI_Browse_DX_Filter_Disease_Vs_Control
-  UI_Browse_DX_Filter_Fluticasone
-  UI_Browse_DX_Filter_Week1_500ug
+  UI_Browse_DX_Filter_Tissue
+  UI_Browse_DX_Filter_Comparison
   UI_Switch_DX_Disease_Model_COPD
   UI_Navigate_To_Inventory_Page_COPD
   UI_Open_Inventory_Item_Target_Expression_COPD
   UI_Switch_DX_Disease_Model_UC
   UI_Navigate_To_Inventory_Page_UC
   UI_Open_Inventory_Item_Target_Expression_UC
+  -- cytopedia_journey --
   UI_Open_CytoPedia_Page
   UI_Filter_CytoPedia_Entities_Category
   UI_Search_CytoPedia_Terms
@@ -75,6 +78,7 @@ import gevent
 from locust import between, events, task
 from locust_plugins.users import playwright as pw_plugin
 from locust_plugins.users.playwright import PageWithRetry, PlaywrightUser, event
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from src.config import TestProfile, settings
@@ -203,36 +207,54 @@ async def _ensure_authenticated_session(user: PlaywrightUser) -> None:
 
         async with event(user, "UI_Login_Auth0"):
             lp = LoginPage(user.page)
-            await user.page.goto(settings.base_url, wait_until="networkidle")
+            ready_loc = user.page.get_by_role(
+                ready_sel.landing_unique_role,
+                name=ready_sel.landing_unique_name,
+            )
+            timeout_ms = max(settings.navigation_timeout_ms, 60_000)
 
-            # Handle both direct Auth0 redirect and embedded login form
-            if "auth0.com" in user.page.url:
-                await lp.login()
-            else:
-                try:
-                    await user.page.get_by_label(
-                        login_sel.username_input_label
-                    ).wait_for(state="visible", timeout=4_000)
-                    await lp.login()
-                except PlaywrightTimeoutError:
-                    pass  # Already authenticated or no form present
+            async def _wait_for_auth_gate() -> str:
+                deadline = time.time() + (timeout_ms / 1000)
+                while time.time() < deadline:
+                    if "auth0.com" in user.page.url:
+                        return "auth0"
+                    try:
+                        if await ready_loc.is_visible():
+                            return "ready"
+                    except PlaywrightTimeoutError:
+                        pass
+                    await user.page.wait_for_timeout(500)
+                return "timeout"
 
             # Verify the app loaded correctly (2 attempts with reload)
             for attempt in range(2):
                 try:
+                    try:
+                        await lp.goto()
+                    except PlaywrightTimeoutError:
+                        await user.page.goto(
+                            settings.base_url,
+                            wait_until="domcontentloaded",
+                            timeout=timeout_ms,
+                        )
+
+                    gate = await _wait_for_auth_gate()
+                    if gate == "auth0":
+                        await lp.login()
+
                     await user.page.wait_for_url(
                         f"**{settings.base_url}/**",
-                        wait_until="networkidle",
-                        timeout=settings.navigation_timeout_ms,
+                        wait_until="domcontentloaded",
+                        timeout=timeout_ms,
                     )
-                    await user.page.get_by_role(
-                        ready_sel.landing_unique_role,
-                        name=ready_sel.landing_unique_name,
-                    ).wait_for(state="visible", timeout=10_000)
+                    await ready_loc.wait_for(state="visible", timeout=timeout_ms)
                     break
-                except PlaywrightTimeoutError:
+                except (PlaywrightTimeoutError, PlaywrightError):
                     if attempt == 0:
-                        await user.page.reload(wait_until="networkidle")
+                        try:
+                            await user.page.reload(wait_until="domcontentloaded")
+                        except (PlaywrightTimeoutError, PlaywrightError):
+                            pass  # reload failed transiently; outer loop will retry
                     else:
                         raise
 

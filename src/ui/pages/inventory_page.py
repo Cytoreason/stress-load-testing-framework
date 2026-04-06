@@ -20,7 +20,7 @@ LIVE VALIDATED (2026-03-11):
 """
 from __future__ import annotations
 
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
 from src.config import settings
 from src.ui.pages.base_page import BasePage
@@ -36,17 +36,53 @@ class InventoryPage(BasePage):
 
     # -------------------------------------------------- readiness
     async def wait_until_ready(self) -> None:
-        """Wait for the Disease Biology button (inventory page rendered)."""
-        await self._disease_biology_btn.wait_for(
-            state="visible", timeout=settings.navigation_timeout_ms
+        """Confirm the inventory page has arrived (URL match only).
+
+        Disease Biology is API-loaded and must not block navigation — it is
+        waited on inside ``expand_disease_biology()`` where it is actually used.
+        """
+        timeout_ms = max(settings.navigation_timeout_ms, 60_000)
+        await self._recover_auth_if_needed()
+        await self.page.wait_for_url(
+            "**/disease-explorer/model-inventory/**",
+            wait_until="domcontentloaded",
+            timeout=timeout_ms,
         )
 
     # ------------------------------------------------------- category
     async def expand_disease_biology(self) -> None:
-        """Click Disease Biology to expand its inventory item list."""
-        await self.safe_click(self._disease_biology_btn)
+        """Click Disease Biology to expand its inventory item list.
+
+        Captures the inventory URL at entry so that auth refreshes mid-wait
+        can be recovered by re-navigating back to the same page.
+        """
+        timeout_ms = max(settings.navigation_timeout_ms, 120_000)
+        inventory_url = self.page.url  # capture before any possible redirect
+        remaining_ms = timeout_ms
+        chunk_ms = 8_000
+        while remaining_ms > 0:
+            try:
+                await self._disease_biology_btn.wait_for(
+                    state="visible", timeout=min(chunk_ms, remaining_ms)
+                )
+                break  # visible — proceed to click
+            except PlaywrightTimeoutError:
+                remaining_ms -= chunk_ms
+                await self._recover_auth_if_needed()
+                if "disease-explorer/model-inventory" not in self.page.url:
+                    await self.page.goto(
+                        inventory_url, wait_until="domcontentloaded", timeout=30_000
+                    )
+                if remaining_ms <= 0:
+                    raise PlaywrightTimeoutError(
+                        f"Disease Biology button not visible after {timeout_ms}ms"
+                    )
+        await self._disease_biology_btn.click()
         # Brief pause for the animation / DOM insertion to settle
         await self.page.wait_for_timeout(400)
+        await self.page.locator("a, button").filter(
+            has_text=inventory_sel.item_target_expression
+        ).first.wait_for(state="visible", timeout=timeout_ms)
 
     # ---------------------------------------------------------- item navigation
     async def open_item_by_partial_text(self, partial_text: str) -> None:
@@ -57,6 +93,10 @@ class InventoryPage(BasePage):
         the filter approach is robust to role ambiguity.
         """
         item = self.page.locator("a, button").filter(has_text=partial_text).first
+        await item.wait_for(
+            state="visible", timeout=max(settings.navigation_timeout_ms, 60_000)
+        )
+        await item.scroll_into_view_if_needed()
         await self.safe_click(item)
         await self.page.wait_for_load_state("domcontentloaded")
 

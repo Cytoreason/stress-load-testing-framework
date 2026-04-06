@@ -8,9 +8,8 @@ LIVE VALIDATED (2026-03-11):
 - Submit button: get_by_role("button", name="Continue", exact=True) ✓
 - After login: redirects to https://apps.private.cytoreason.com/platform/customers/pyy/
 
-CRITICAL: Navigation to BASE_URL must use wait_until="networkidle" (not domcontentloaded)
-so that the React SPA's JS fires, detects the unauthenticated state, and completes the
-Auth0 redirect before the caller checks the URL.
+Note: Use domcontentloaded to avoid SPA background polling preventing navigation
+from reaching networkidle.
 """
 from __future__ import annotations
 
@@ -26,12 +25,11 @@ class LoginPage:
 
     async def goto(self) -> None:
         """
-        Navigate to the platform.  Uses networkidle so the React SPA can fire
-        and the Auth0 redirect completes before the caller checks the URL.
+        Navigate to the platform.
         """
         self.page.set_default_timeout(settings.default_timeout_ms)
         self.page.set_default_navigation_timeout(settings.navigation_timeout_ms)
-        await self.page.goto(settings.base_url, wait_until="networkidle")
+        await self.page.goto(settings.base_url, wait_until="domcontentloaded")
 
     async def login(self) -> None:
         """
@@ -68,14 +66,13 @@ class LoginPage:
             "button", name=login_sel.continue_button_name, exact=True
         ).click()
 
-        # Best-effort wait for redirect back to the platform (networkidle so
-        # the React app fully boots before the caller asserts readiness).
+        # Best-effort wait for redirect back to the platform.
         base = settings.base_url.rstrip("/")
         if base not in self.page.url:
             try:
                 await self.page.wait_for_url(
                     f"**{base}/**",
-                    wait_until="networkidle",
+                    wait_until="domcontentloaded",
                     timeout=30_000,
                 )
             except PlaywrightTimeoutError:
