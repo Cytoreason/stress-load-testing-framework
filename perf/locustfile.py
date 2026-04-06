@@ -162,11 +162,17 @@ async def _create_browser_context(user: PlaywrightUser) -> None:
         except Exception:
             pass
 
-    new_ctx = await user.browser.new_context(
+    ctx_kwargs: dict = dict(
         ignore_https_errors=True,
         base_url=user.host,
         viewport=settings.viewport,
     )
+    if settings.has_http_basic_auth:
+        ctx_kwargs["http_credentials"] = {
+            "username": settings.http_basic_user,
+            "password": settings.http_basic_pass,
+        }
+    new_ctx = await user.browser.new_context(**ctx_kwargs)
 
     # Block media/fonts to reduce per-session bandwidth and CPU
     async def _route_handler(route, request):

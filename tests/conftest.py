@@ -75,11 +75,17 @@ async def authenticated_context(base_url: str):
         browser = await getattr(playwright, settings.browser).launch(
             headless=settings.headless,
         )
-        ctx: BrowserContext = await browser.new_context(
+        ctx_kwargs: dict = dict(
             base_url=base_url,
             viewport=settings.viewport,
             ignore_https_errors=True,
         )
+        if settings.has_http_basic_auth:
+            ctx_kwargs["http_credentials"] = {
+                "username": settings.http_basic_user,
+                "password": settings.http_basic_pass,
+            }
+        ctx: BrowserContext = await browser.new_context(**ctx_kwargs)
 
         # Block media/fonts for speed
         async def route_handler(route, request):
