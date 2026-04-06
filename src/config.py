@@ -51,10 +51,10 @@ class Settings:
         default_factory=lambda: os.getenv("BROWSER", "chromium").strip()
     )
     browser_width: int = field(
-        default_factory=lambda: int(os.getenv("BROWSER_WIDTH", "1366"))
+        default_factory=lambda: int(os.getenv("BROWSER_WIDTH", "1920"))
     )
     browser_height: int = field(
-        default_factory=lambda: int(os.getenv("BROWSER_HEIGHT", "768"))
+        default_factory=lambda: int(os.getenv("BROWSER_HEIGHT", "1080"))
     )
 
     # ---------------------------------------------------------------- timeouts
