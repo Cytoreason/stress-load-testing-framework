@@ -185,7 +185,9 @@ async def _create_browser_context(user: PlaywrightUser) -> None:
 
     page = await new_ctx.new_page()
     page.set_default_timeout(settings.default_timeout_ms)
-    page.set_default_navigation_timeout(settings.navigation_timeout_ms)
+    # Disease model inventory pages can take >60 s; floor at 90 s so workers
+    # with a low NAVIGATION_TIMEOUT_MS env var don't get spurious timeouts.
+    page.set_default_navigation_timeout(max(settings.navigation_timeout_ms, 90_000))
 
     user.browser_context = new_ctx
     user.page = page

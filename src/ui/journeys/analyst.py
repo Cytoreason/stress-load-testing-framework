@@ -49,4 +49,4 @@ async def analyst_journey(page: Page) -> None:
     await page.get_by_role("button", name="Entities", exact=True).first.click()
     await search.fill("cell")
     await page.wait_for_timeout(300)
-    await page.get_by_role("button", name="Cell Entities").click()
+    await page.get_by_role("link", name="Cell Entities").click()

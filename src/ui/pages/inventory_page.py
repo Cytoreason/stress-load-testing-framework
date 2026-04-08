@@ -57,3 +57,9 @@ class InventoryPage(BasePage):
 
     async def open_soc_treatment(self) -> None:
         await self.open_item(inventory_sel.item_soc_treatment)
+
+    async def open_target_pathway_association(self) -> None:
+        await self.open_item(inventory_sel.item_target_pathway_association)
+
+    async def open_target_cell_association(self) -> None:
+        await self.open_item(inventory_sel.item_target_cell_association)

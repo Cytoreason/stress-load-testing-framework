@@ -45,5 +45,6 @@ class CytopediaPage(BasePage):
 
     # ---------------------------------------------------------- result click
     async def open_cell_entities(self) -> None:
-        link = self.page.get_by_role("button", name=cytopedia_sel.cell_entities_link)
+        # Cell Entities appears as a navigation link in search results, not a button
+        link = self.page.get_by_role("link", name=cytopedia_sel.cell_entities_link)
         await self.safe_click(link)

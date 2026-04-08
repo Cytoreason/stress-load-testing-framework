@@ -41,6 +41,18 @@ class BasePage:
 
         for attempt in range(retries + 1):
             await self.page.goto(url, wait_until="domcontentloaded")
+
+            # Chrome error page (ERR_ABORTED, ERR_CONNECTION_REFUSED, etc.) –
+            # retry immediately rather than waiting for a ready-locator that
+            # will never appear.
+            if "chrome-error://" in self.page.url:
+                if attempt < retries:
+                    continue
+                raise PlaywrightTimeoutError(
+                    f"Navigation to {url} produced a Chrome error page "
+                    f"after {retries + 1} attempt(s)."
+                )
+
             await self._recover_auth_if_needed()
 
             try:

@@ -48,7 +48,9 @@ class DxPage(BasePage):
 
     async def wait_for_model_combobox(self, name_pattern: str) -> None:
         combo = self.page.get_by_role("combobox", name=re.compile(name_pattern))
-        await combo.wait_for(state="visible", timeout=settings.navigation_timeout_ms)
+        # Disease model inventory pages can be slow; allow at least 90 s
+        timeout_ms = max(settings.navigation_timeout_ms, 90_000)
+        await combo.wait_for(state="visible", timeout=timeout_ms)
 
     # ------------------------------------------------------- analysis controls
     async def select_white_space_analysis(self) -> None:
@@ -57,6 +59,10 @@ class DxPage(BasePage):
 
     async def select_target_signature_analysis(self) -> None:
         radio = self.page.get_by_role("radio", name=dx_sel.radio_target_signature)
+        await self.safe_click(radio)
+
+    async def select_target_gene_analysis(self) -> None:
+        radio = self.page.get_by_role("radio", name=dx_sel.radio_target_gene)
         await self.safe_click(radio)
 
     # ------------------------------------------------------- filter comboboxes

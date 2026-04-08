@@ -78,6 +78,8 @@ class _InventorySelectors:
     item_cell_abundance: str = "3 . Differential Cell Abundance in Disease"
     item_disease_severity: str = "7 . Association with disease severity"
     item_soc_treatment: str = "8 . Standard of care (SOC) treatment effect spaces"
+    item_target_pathway_association: str = "Target-Pathway Association"
+    item_target_cell_association: str = "Target-Cell Association"
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +100,7 @@ class _DxSelectors:
     # Analysis type radio buttons
     radio_white_space: str = "White Space"
     radio_target_signature: str = "Target Signature"
+    radio_target_gene: str = "Target Gene"
 
     # Filter comboboxes on the ASTH DX view (validated names)
     combobox_bronchus: str = "bronchus"
